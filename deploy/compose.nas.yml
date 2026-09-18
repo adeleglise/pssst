@@ -1,0 +1,56 @@
+# Production stack for the NAS. It carries only the exporter and its own
+# Blackbox instance; metrics are scraped by the Prometheus already running
+# there, which owns retention, rules and alerting.
+#
+#   NAS Prometheus ──scrape──> pssst:9099 ──/probe──> pssst-blackbox:9115
+#                                   │                        │
+#                                   └──status pages          └──PSP endpoints
+#
+# The exporter publishes no port on the host by default: the NAS Prometheus
+# reaches it over this network. Set PSSST_PUBLISH to expose it for debugging.
+name: pssst
+
+services:
+  pssst:
+    image: ${PSSST_IMAGE:-gitea.doudnas.home.al1.io/alain/pssst:latest}
+    restart: unless-stopped
+    command: ["-config", "/etc/pssst/config.yml"]
+    configs:
+      - source: pssst_config
+        target: /etc/pssst/config.yml
+    ports:
+      - "${PSSST_PUBLISH:-127.0.0.1:9099}:9099"
+    depends_on:
+      - pssst-blackbox
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  pssst-blackbox:
+    image: quay.io/prometheus/blackbox-exporter:v0.28.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    configs:
+      - source: pssst_blackbox
+        target: /etc/blackbox/blackbox.yml
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Configs are inlined so the stack needs no bind mount on the NAS filesystem.
+configs:
+  pssst_config:
+    file: ./pssst.psp.yml
+  pssst_blackbox:
+    file: ./blackbox/blackbox.yml

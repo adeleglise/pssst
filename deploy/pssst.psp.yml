@@ -1,0 +1,371 @@
+# Real PSP inventory. Every endpoint here is a public production address and
+# every component ID was verified against the live status page before being
+# written down. No credential belongs in this file.
+#
+# Declared status uses the provider's own status page when it publishes a
+# machine-readable one. A provider without one keeps type: none and is carried
+# by the observed signal alone; that is an absent source, never a healthy one.
+#
+# Probe modules measure reachability, not authorization: a payment API that
+# answers 401 or 404 on its root is up. Only a transport failure is a failure.
+
+server:
+  listen_address: ":9099"
+
+polling:
+  # Status pages change slowly and are shared infrastructure; poll them gently.
+  status_interval: 300s
+  probe_interval: 60s
+  timeout: 15s
+  jitter: 30s
+
+blackbox:
+  base_url: "http://pssst-blackbox:9115"
+
+psps:
+  # ---------------------------------------------------------------- Statuspage
+  - id: payplug
+    display_name: Payplug
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.payplug.com"
+      components:
+        ecommerce_payments: mychm038gxsp
+        settlement: qqt0g2qq543n
+        alternative_methods: 30zws7fks013
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.payplug.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.payplug.com:443"
+
+  - id: payplug_enterprise
+    display_name: Payplug Enterprise
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.payplug-enterprise.com"
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.payplug.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.payplug.com:443"
+
+  - id: stripe
+    display_name: Stripe
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://www.stripestatus.com"
+      components:
+        api: 2p0n66vlgnn2
+        global_payments: qcs5gg7rz4ps
+        acquirers_and_methods: glvywj51z2g9
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.stripe.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.stripe.com:443"
+
+  - id: stancer
+    display_name: Stancer
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.stancer.com"
+      components:
+        api: twd80qx1gmvg
+        three_ds: 74d7k7tlnqyq
+        dsp2: 3ppqr4xxpl98
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.stancer.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.stancer.com:443"
+
+  - id: slimpay
+    display_name: SlimPay
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.slimpay.com"
+      components:
+        web_api: 4v3bd98l172f
+        payment_initiation: hhb9xrspczx5
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.slimpay.net/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.slimpay.net:443"
+
+  - id: alma
+    display_name: Alma
+    kind: psp
+    status:
+      # status.getalma.eu redirects here; redirects are refused on purpose.
+      type: statuspage_v2
+      base_url: "https://status.almapay.com"
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.getalma.eu/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.getalma.eu:443"
+
+  - id: gocardless
+    display_name: GoCardless
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://www.gocardless-status.com"
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.gocardless.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.gocardless.com:443"
+
+  - id: klarna
+    display_name: Klarna
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.klarna.com"
+      components:
+        payments: rcl7yv9tng36
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.klarna.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.klarna.com:443"
+
+  - id: wise
+    display_name: Wise
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.wise.com"
+      components:
+        api: bmfb24t34ymm
+        payments: 2jxb8y760wrd
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.wise.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.wise.com:443"
+
+  - id: sumup
+    display_name: SumUp
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.sumup.com"
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.sumup.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.sumup.com:443"
+
+  - id: monext
+    display_name: Monext Payline
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.monext.com"
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://services.payline.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "services.payline.com:443"
+
+  - id: lemonway
+    display_name: Lemonway
+    kind: psp
+    status:
+      type: statuspage_v2
+      base_url: "https://status.lemonway.com"
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.lemonway.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.lemonway.com:443"
+
+  # ------------------------------------------------------------------ Instatus
+  - id: mollie
+    display_name: Mollie
+    kind: psp
+    status:
+      type: instatus_v1
+      base_url: "https://status.mollie.com"
+      components:
+        api: clvdt33p42348avosu0hidx2b
+        webhook: cmilqweaf0a36oyqjregtkoq9
+        settlements: clvp89ugl777974gocw428ifyo
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.mollie.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.mollie.com:443"
+
+  - id: swan
+    display_name: Swan
+    kind: bank
+    status:
+      type: instatus_v1
+      base_url: "https://status.swan.io"
+      components:
+        api: cm8n8m817000rzuoc4tp3dv23-k774vnc8fn52
+        card_payments: cm8n8m817000qzuocg4oe9d8w-pxs6x56v73b9
+        sepa_credit_transfers: cm8n8m817000ozuoc05qahkrp-65j6f1y4xcvj
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.swan.io/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.swan.io:443"
+
+  # ----------------------------------------- Observed signal only, no published
+  # machine-readable status source found. Recheck before assuming none exists:
+  # pssst-check qualifies a candidate URL in one command.
+  - id: adyen
+    display_name: Adyen
+    kind: psp
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://checkout-test.adyen.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "checkout-test.adyen.com:443"
+
+  - id: paypal
+    display_name: PayPal
+    kind: psp
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api-m.paypal.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api-m.paypal.com:443"
+
+  - id: checkout_com
+    display_name: Checkout.com
+    kind: psp
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.checkout.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.checkout.com:443"
+
+  - id: qonto
+    display_name: Qonto
+    kind: bank
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://thirdparty.qonto.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "thirdparty.qonto.com:443"
+
+  - id: hipay
+    display_name: HiPay
+    kind: psp
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://secure-gateway.hipay-tpp.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "secure-gateway.hipay-tpp.com:443"
+
+  - id: mangopay
+    display_name: Mangopay
+    kind: psp
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.mangopay.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.mangopay.com:443"
+
+  - id: fintecture
+    display_name: Fintecture
+    kind: psp
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.fintecture.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.fintecture.com:443"
+
+  - id: bridge
+    display_name: Bridge
+    kind: psp
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://api.bridgeapi.io/"
+      - id: api_tls
+        module: tls_connect
+        target: "api.bridgeapi.io:443"
+
+  - id: treezor
+    display_name: Treezor
+    kind: bank
+    status:
+      type: none
+    probes:
+      - id: api_https
+        module: http_api_reachable
+        target: "https://www.treezor.com/"
+      - id: api_tls
+        module: tls_connect
+        target: "www.treezor.com:443"
