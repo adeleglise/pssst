@@ -38,6 +38,7 @@ const (
 	StatusTypeAdyenV1      = "adyen_v1"
 	StatusTypePayPalV1     = "paypal_v1"
 	StatusTypeHiPayV1      = "hipay_v1"
+	StatusTypeKenerV1      = "kener_v1"
 )
 
 var envReference = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
@@ -196,7 +197,7 @@ func (c Config) validate() error {
 			if p.Status.BaseURL != "" || len(p.Status.Headers) > 0 || len(p.Status.Components) > 0 {
 				return fmt.Errorf("%s.status: none cannot have a URL, headers or components", prefix)
 			}
-		case StatusTypeStatuspageV2, StatusTypeInstatusV1, StatusTypeHiPayV1:
+		case StatusTypeStatuspageV2, StatusTypeInstatusV1, StatusTypeHiPayV1, StatusTypeKenerV1:
 			if !validURL(p.Status.BaseURL, true) {
 				return fmt.Errorf("%s.status.base_url must be an HTTP(S) URL without credentials, query or fragment", prefix)
 			}
@@ -210,7 +211,7 @@ func (c Config) validate() error {
 				return fmt.Errorf("%s.status: this source publishes no components", prefix)
 			}
 		default:
-			return fmt.Errorf("%s.status.type must be statuspage_v2, instatus_v1, hipay_v1, adyen_v1, paypal_v1 or none", prefix)
+			return fmt.Errorf("%s.status.type must be statuspage_v2, instatus_v1, hipay_v1, kener_v1, adyen_v1, paypal_v1 or none", prefix)
 		}
 		if !validHeaders(p.Status.Headers) {
 			return fmt.Errorf("%s.status.headers are invalid", prefix)
@@ -220,7 +221,7 @@ func (c Config) validate() error {
 		}
 		componentIDs := map[string]bool{}
 		for id, upstream := range p.Status.Components {
-			if id == "overall" || !identifier.MatchString(id) || !identifier.MatchString(upstream) || componentIDs[upstream] {
+			if id == "overall" || !identifier.MatchString(id) || !validUpstreamID(p.Status.Type, upstream) || componentIDs[upstream] {
 				return fmt.Errorf("%s.status.components must have valid unique IDs; overall is reserved", prefix)
 			}
 			componentIDs[upstream] = true
@@ -265,6 +266,26 @@ func validURL(s string, base bool) bool {
 	}
 	return !base || (u.RawQuery == "" && !u.ForceQuery)
 }
+
+// validUpstreamID accepts the identifier shape a source actually publishes.
+// A hosted page exposes opaque tokens; a page read from markup exposes the
+// displayed label, which legitimately contains spaces. Only the local alias
+// becomes a metric label, so only the alias stays strict.
+func validUpstreamID(sourceType, value string) bool {
+	if sourceType != StatusTypeKenerV1 {
+		return identifier.MatchString(value)
+	}
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for _, r := range value {
+		if r < 32 || r == 127 {
+			return false
+		}
+	}
+	return true
+}
+
 func validKind(s string) bool {
 	if s == "" {
 		return true

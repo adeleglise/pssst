@@ -302,7 +302,15 @@ psps:
     display_name: Qonto
     kind: bank
     status:
-      type: none
+      # Kener page with no public API: parsed from markup, so it fails loudly
+      # if Qonto redesigns. Component keys are the displayed monitor names.
+      type: kener_v1
+      base_url: "https://status.qonto.com"
+      components:
+        authentication: Authentication
+        transactions: Transactions
+        card_payments: Card payments
+        transfers: Transfers
     probes:
       - id: api_https
         module: http_api_reachable

@@ -138,3 +138,33 @@ func TestInventoryAndInputBounds(t *testing.T) {
 		}
 	})
 }
+
+// A hosted page exposes opaque component tokens, but a page read from markup
+// exposes the displayed label, which legitimately contains spaces. Only the
+// local alias becomes a metric label, so only the alias must stay strict.
+func TestUpstreamComponentIDShapeFollowsSourceType(t *testing.T) {
+	withComponents := func(sourceType, url, alias, upstream string) string {
+		return fmt.Sprintf(`
+psps:
+  - id: demo
+    status:
+      type: %s
+      base_url: %q
+      components:
+        %s: %q
+`, sourceType, url, alias, upstream)
+	}
+
+	if _, err := Parse([]byte(withComponents("kener_v1", "https://status.example.test", "card_payments", "Card payments"))); err != nil {
+		t.Errorf("a displayed label must be accepted for kener_v1: %v", err)
+	}
+	if _, err := Parse([]byte(withComponents("statuspage_v2", "https://status.example.test", "cards", "Card payments"))); err == nil {
+		t.Error("a hosted page component ID must stay a strict token")
+	}
+	if _, err := Parse([]byte(withComponents("kener_v1", "https://status.example.test", "card payments", "Card payments"))); err == nil {
+		t.Error("the local alias becomes a metric label and must stay strict")
+	}
+	if _, err := Parse([]byte(withComponents("kener_v1", "https://status.example.test", "cards", "bad\tlabel"))); err == nil {
+		t.Error("a control character must be rejected in any identifier")
+	}
+}
