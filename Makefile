@@ -25,6 +25,7 @@ build:
 	mkdir -p bin
 	go build -o bin/pssst ./cmd/psp-exporter
 	go build -o bin/fake-psp ./cmd/fake-psp
+	go build -o bin/pssst-check ./cmd/pssst-check
 
 image:
 	$(RUNTIME) build --target exporter --tag $(IMAGE) .

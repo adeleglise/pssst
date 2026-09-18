@@ -58,8 +58,9 @@ The parser accepts exactly one YAML document, rejects unknown and duplicate fiel
 | `blackbox.headers` | Optional, bounded request headers for Blackbox. |
 | `psps[].id` | Stable, unique metric identifier. IDs are 1–64 alphanumeric, `_`, `.`, or `-` characters and start with an alphanumeric character or `_`. |
 | `psps[].display_name` | Optional human-facing name; it is never a metric label. |
-| `psps[].status.type` | `statuspage_v2` or `none`. `none` is unconfigured declared status, not a healthy source. |
-| `psps[].status.base_url` | Required HTTP(S) Statuspage base URL for `statuspage_v2`; no credentials, query, or fragment. |
+| `psps[].kind` | Entity class, one of `psp`, `acquirer`, `bank`. Defaults to `psp`. Exported by `psp_info`, never as a label on other metrics. |
+| `psps[].status.type` | `statuspage_v2`, `instatus_v1`, or `none`. `none` is unconfigured declared status, not a healthy source. |
+| `psps[].status.base_url` | Required HTTP(S) status page base URL for any adapter but `none`; no credentials, query, or fragment. Redirects are refused, so use the canonical host. |
 | `psps[].status.headers` | Optional bounded Statuspage headers, normally containing an environment-expanded secret. |
 | `psps[].status.components` | Optional stable local component ID to upstream Statuspage component ID map. `overall` is reserved. |
 | `psps[].probes[].id` | Stable endpoint ID, unique within its PSP. |
@@ -76,6 +77,31 @@ Each source and probe has an independent, non-overlapping polling loop. A later 
 
 Staleness is per source or endpoint: `3 * (interval + jitter + timeout)`. Before the first successful fetch, data is unknown. Statuspage `summary.json` is a current-state endpoint, so PSSST does not ingest historical pages or incident history.
 
+## Declared-status adapters
+
+| Adapter | Source | Notes |
+| --- | --- | --- |
+| `statuspage_v2` | `/api/v2/summary.json` | One current-state document. Not paginated: it carries unresolved incidents and upcoming maintenance only, so PSSST ingests no history. |
+| `instatus_v1` | `/summary.json` and `/v2/components.json` | Instatus splits current state over two documents; both must succeed or the snapshot fails as a whole. Its impact scale stops at `MAJOROUTAGE`, so `critical` never originates from it. |
+| `none` | none | The provider publishes no machine-readable source. Declared status is absent, not healthy. |
+
+Both adapters accept what real pages publish rather than an idealized schema:
+an omitted empty incident list means nothing is active, and a scheduled
+maintenance with no date still counts but cannot become the next start. A
+missing `components` array or page indicator remains a failed retrieval.
+
+Qualify a candidate provider before adding it to a configuration:
+
+```sh
+make build
+bin/pssst-check -type statuspage_v2 -url https://status.example.com
+bin/pssst-check -type instatus_v1 -url https://status.example.com -components 'payment_api=abc123'
+```
+
+It prints the normalized snapshot the adapter would export, and nothing else
+contacts the provider. A component ID that the page does not publish fails the
+whole snapshot on purpose, so check the mapping here first.
+
 ## Metrics
 
 All metrics are gauges. Except for build information, they have a `psp` label; probe metrics also use `endpoint`, declared component metrics use `component`, and incidents use bounded `severity` (`none`, `minor`, `major`, `critical`, or `unknown`). `job` and `instance` are attached by Prometheus. PSSST never labels metrics with URLs, incident text, timestamps, credentials, or arbitrary remote values.
@@ -83,6 +109,7 @@ All metrics are gauges. Except for build information, they have a `psp` label; p
 | Metric | Meaning |
 | --- | --- |
 | `psp_exporter_build_info{version}` | Build identity, always 1. |
+| `psp_info{kind}` | Entity class, always 1. Join on `psp` to filter by `psp`, `acquirer` or `bank` without adding a label to every series. |
 | `psp_status_source_configured` | 1 only for `statuspage_v2`. |
 | `psp_status_source_up` | Last status request produced a complete valid snapshot. |
 | `psp_status_source_last_success_timestamp_seconds` / `last_poll_timestamp_seconds` / `stale_after_seconds` | Status freshness timestamps and threshold. |
@@ -118,6 +145,30 @@ psp_probe_duration_seconds{psp="example_statuspage",endpoint="payment_api"}
 No NAS service is deployed or changed by this repository. To integrate PSSST with the existing Prometheus/Grafana installation at `192.168.1.250`, run PSSST on a host that the NAS can reach, copy [examples/prometheus-existing.yml](examples/prometheus-existing.yml) into the existing scrape configuration, and copy [deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml) into its rule directory. Add the rule file to the existing `rule_files` list, validate the merged configuration with that Prometheus's `promtool`, then use the existing reload/restart process. Replace `PSSST_HOST_OR_IP` with a routable address; `localhost` on the NAS is not the exporter host.
 
 Import `deploy/grafana/pssst.json` into the existing Grafana and select its existing Prometheus data source. The repository does not create another Grafana service. The Portainer endpoint and its Keychain token are intentionally not used by PSSST or these instructions.
+
+## Deploy on the NAS
+
+[deploy/pssst.psp.yml](deploy/pssst.psp.yml) is the real inventory: twenty-three
+providers, fourteen of them with a declared source. Every URL and component ID
+in it was resolved against the live page before being written down.
+
+[deploy/compose.nas.yml](deploy/compose.nas.yml) runs the exporter and its own
+Blackbox instance. It carries no Prometheus: the instance already running on the
+NAS scrapes it and owns retention, rules and alerting.
+
+```sh
+podman build --platform linux/amd64 --target exporter -t pssst:VERSION .
+podman compose -f deploy/compose.nas.yml up -d
+```
+
+The NAS runs x86_64, so build for `linux/amd64` from an arm64 workstation. The
+Dockerfile cross-compiles instead of emulating.
+
+Merge [deploy/prometheus/pssst-scrape.yml](deploy/prometheus/pssst-scrape.yml)
+into the existing scrape configuration and add
+[deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml) to its `rule_files`,
+then reload. Publish the exporter on the NAS address rather than loopback:
+Prometheus runs in a container and cannot reach the host loopback.
 
 ## Add a PSP or adapter
 
