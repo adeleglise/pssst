@@ -2,7 +2,7 @@
   "apiVersion": "dashboard.grafana.app/v2beta1",
   "kind": "Dashboard",
   "metadata": {
-    "name": "pssst",
+    "name": "pssst-status",
     "namespace": "default"
   },
   "spec": {
@@ -37,7 +37,7 @@
         "spec": {
           "id": 1,
           "title": "PSP en panne observée",
-          "description": "Au moins une sonde en échec, collecte fraîche et valide.",
+          "description": "Au moins une sonde en échec, sur une collecte fraîche et valide.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -72,7 +72,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -152,7 +152,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -232,7 +232,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -312,7 +312,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -392,7 +392,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -468,7 +468,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -513,7 +513,7 @@
         "spec": {
           "id": 7,
           "title": "PSP en panne observée",
-          "description": "Vide = aucune panne observée.",
+          "description": "Vide signifie qu'aucune panne n'est observée.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -546,16 +546,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "État"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "État"
+                      }
+                    }
                   }
                 }
               ],
@@ -565,7 +569,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -588,7 +592,7 @@
                   {
                     "matcher": {
                       "id": "byName",
-                      "options": "Valeur"
+                      "options": "État"
                     },
                     "properties": [
                       {
@@ -630,7 +634,7 @@
         "spec": {
           "id": 8,
           "title": "Incidents déclarés en cours",
-          "description": "Par sévérité normalisée.",
+          "description": "Comptés par sévérité normalisée.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -663,16 +667,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "Incidents"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "Incidents"
+                      }
+                    }
                   }
                 }
               ],
@@ -682,7 +690,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -711,8 +719,8 @@
         "kind": "Panel",
         "spec": {
           "id": 9,
-          "title": "Maintenances planifiées",
-          "description": "Prochaine fenêtre annoncée par le fournisseur.",
+          "title": "Prochaine fenêtre annoncée",
+          "description": "Date de début publiée par le fournisseur.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -745,16 +753,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "Début"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "Début"
+                      }
+                    }
                   }
                 }
               ],
@@ -764,7 +776,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -794,8 +806,8 @@
         "kind": "Panel",
         "spec": {
           "id": 10,
-          "title": "Nombre de maintenances annoncées",
-          "description": "Total annoncé par fournisseur, y compris sans date.",
+          "title": "Fenêtres annoncées par fournisseur",
+          "description": "Total annoncé, y compris les fenêtres sans date.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -828,16 +840,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "Fenêtres"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "Fenêtres"
+                      }
+                    }
                   }
                 }
               ],
@@ -847,7 +863,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -876,8 +892,8 @@
         "kind": "Panel",
         "spec": {
           "id": 11,
-          "title": "État déclaré par composant",
-          "description": "overall est le rollup de la page. Un composant non opérationnel le force à zéro.",
+          "title": "État par composant",
+          "description": "overall est le rollup de la page: un composant non opérationnel le force à zéro.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -910,16 +926,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "État"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "État"
+                      }
+                    }
                   }
                 }
               ],
@@ -929,7 +949,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -952,7 +972,7 @@
                   {
                     "matcher": {
                       "id": "byName",
-                      "options": "Valeur"
+                      "options": "État"
                     },
                     "properties": [
                       {
@@ -993,7 +1013,7 @@
         "kind": "Panel",
         "spec": {
           "id": 12,
-          "title": "Fraîcheur des sources déclarées",
+          "title": "Fraîcheur des sources",
           "description": "Temps écoulé depuis le dernier instantané complet et valide.",
           "links": [],
           "data": {
@@ -1027,16 +1047,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "Âge"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "Âge"
+                      }
+                    }
                   }
                 }
               ],
@@ -1046,7 +1070,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -1112,7 +1136,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "timeseries",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "legend": {
@@ -1194,7 +1218,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "timeseries",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "legend": {
@@ -1240,7 +1264,7 @@
         "kind": "Panel",
         "spec": {
           "id": 15,
-          "title": "Résultat des sondes",
+          "title": "Dernier résultat",
           "description": "Résultat rapporté par Blackbox, indépendant de ce que déclare le fournisseur.",
           "links": [],
           "data": {
@@ -1274,16 +1298,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "État"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "État"
+                      }
+                    }
                   }
                 }
               ],
@@ -1293,7 +1321,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -1316,7 +1344,7 @@
                   {
                     "matcher": {
                       "id": "byName",
-                      "options": "Valeur"
+                      "options": "État"
                     },
                     "properties": [
                       {
@@ -1391,16 +1419,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "Jours restants"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "Jours restants"
+                      }
+                    }
                   }
                 }
               ],
@@ -1410,7 +1442,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -1476,7 +1508,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "timeseries",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "legend": {
@@ -1556,16 +1588,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "Code"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "Code"
+                      }
+                    }
                   }
                 }
               ],
@@ -1575,7 +1611,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -1640,7 +1676,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -1720,7 +1756,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -1800,7 +1836,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -1844,8 +1880,8 @@
         "kind": "Panel",
         "spec": {
           "id": 22,
-          "title": "Version exportée",
-          "description": "Identité de build de l'exporteur.",
+          "title": "Entités surveillées",
+          "description": "PSP, acquéreurs et banques confondus.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1864,7 +1900,7 @@
                         "name": "prometheus"
                       },
                       "spec": {
-                        "expr": "psp_exporter_build_info",
+                        "expr": "count(psp_info)",
                         "legendFormat": "",
                         "range": false,
                         "instant": true
@@ -1880,7 +1916,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "graphMode": "none",
@@ -1920,8 +1956,8 @@
         "kind": "Panel",
         "spec": {
           "id": 23,
-          "title": "Taux d'échec de collecte Blackbox",
-          "description": "Compteur cumulatif: mesure notre capacité à collecter, pas la santé du fournisseur.",
+          "title": "Échecs de collecte Blackbox",
+          "description": "Mesure notre capacité à collecter, pas la santé du fournisseur.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1956,7 +1992,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "timeseries",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "legend": {
@@ -2002,7 +2038,7 @@
         "kind": "Panel",
         "spec": {
           "id": 24,
-          "title": "Taux d'échec des sources déclarées",
+          "title": "Échecs des sources déclarées",
           "description": "Échecs de récupération de la page de statut officielle.",
           "links": [],
           "data": {
@@ -2038,7 +2074,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "timeseries",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "legend": {
@@ -2085,7 +2121,7 @@
         "spec": {
           "id": 25,
           "title": "Sondes en échec observé",
-          "description": "Sondes collectées avec succès mais dont le résultat est un échec: le fournisseur, pas nous.",
+          "description": "Collecte réussie mais résultat en échec: le fournisseur, pas nous.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -2120,7 +2156,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "timeseries",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "legend": {
@@ -2200,16 +2236,20 @@
                 {
                   "kind": "organize",
                   "spec": {
-                    "excludeByName": {
-                      "Time": true,
-                      "__name__": true,
-                      "job": true,
-                      "instance": true
-                    },
-                    "renameByName": {
-                      "Value": "Âge"
-                    },
-                    "indexByName": {}
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "__name__": true,
+                        "job": true,
+                        "instance": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "renameByName": {
+                        "Value": "Âge"
+                      }
+                    }
                   }
                 }
               ],
@@ -2219,7 +2259,7 @@
           "vizConfig": {
             "kind": "VizConfig",
             "group": "table",
-            "version": "13.0.0",
+            "version": "",
             "spec": {
               "options": {
                 "showHeader": true,
@@ -2255,136 +2295,150 @@
             "spec": {
               "title": "Vue d'ensemble",
               "layout": {
-                "kind": "GridLayout",
+                "kind": "RowsLayout",
                 "spec": {
-                  "items": [
+                  "rows": [
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 0,
-                        "y": 0,
-                        "width": 4,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-1"
+                        "title": "Coup d'œil",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 6,
+                            "rowHeight": 1,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-1"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-2"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-3"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-4"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-5"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-6"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 4,
-                        "y": 0,
-                        "width": 4,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-2"
+                        "title": "Qui est en panne",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "rowHeight": 5,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-7"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-8"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 8,
-                        "y": 0,
-                        "width": 4,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-3"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 0,
-                        "width": 4,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-4"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 16,
-                        "y": 0,
-                        "width": 4,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-5"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 20,
-                        "y": 0,
-                        "width": 4,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-6"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 4,
-                        "width": 12,
-                        "height": 7,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-7"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 4,
-                        "width": 12,
-                        "height": 7,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-8"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 11,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-9"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 11,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-10"
+                        "title": "Maintenances planifiées",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "rowHeight": 5,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-9"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-10"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     }
@@ -2398,58 +2452,78 @@
             "spec": {
               "title": "Déclaré",
               "layout": {
-                "kind": "GridLayout",
+                "kind": "RowsLayout",
                 "spec": {
-                  "items": [
+                  "rows": [
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 0,
-                        "y": 0,
-                        "width": 12,
-                        "height": 10,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-11"
+                        "title": "État déclaré",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "rowHeight": 6,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-11"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-12"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 12,
-                        "y": 0,
-                        "width": 12,
-                        "height": 10,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-12"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 10,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-13"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 10,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-14"
+                        "title": "Tendances",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "rowHeight": 5,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-13"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-14"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     }
@@ -2463,58 +2537,78 @@
             "spec": {
               "title": "Observé",
               "layout": {
-                "kind": "GridLayout",
+                "kind": "RowsLayout",
                 "spec": {
-                  "items": [
+                  "rows": [
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 0,
-                        "y": 0,
-                        "width": 12,
-                        "height": 10,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-15"
+                        "title": "Résultat des sondes",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "rowHeight": 6,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-15"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-16"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 12,
-                        "y": 0,
-                        "width": 12,
-                        "height": 10,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-16"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 10,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-17"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 10,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-18"
+                        "title": "Détail",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "rowHeight": 5,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-17"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-18"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     }
@@ -2528,110 +2622,132 @@
             "spec": {
               "title": "Santé de la collecte",
               "layout": {
-                "kind": "GridLayout",
+                "kind": "RowsLayout",
                 "spec": {
-                  "items": [
+                  "rows": [
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 0,
-                        "y": 0,
-                        "width": 6,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-19"
+                        "title": "Notre capacité à mesurer",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 4,
+                            "rowHeight": 1,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-19"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-20"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-21"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-22"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 6,
-                        "y": 0,
-                        "width": 6,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-20"
+                        "title": "Taux d'échec",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "rowHeight": 5,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-23"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-24"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "x": 12,
-                        "y": 0,
-                        "width": 6,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-21"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 18,
-                        "y": 0,
-                        "width": 6,
-                        "height": 4,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-22"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 4,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-23"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 4,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-24"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 0,
-                        "y": 12,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-25"
-                        }
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "x": 12,
-                        "y": 12,
-                        "width": 12,
-                        "height": 8,
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-26"
+                        "title": "Sondes et fraîcheur",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "rowHeight": 5,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-25"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-26"
+                                  }
+                                }
+                              }
+                            ]
+                          }
                         }
                       }
                     }

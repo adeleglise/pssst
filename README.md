@@ -69,6 +69,48 @@ The parser accepts exactly one YAML document, rejects unknown and duplicate fiel
 
 There can be at most 128 PSPs, 32 probes per PSP, and 128 mapped components. Headers reject unsafe hop-by-hop fields and control characters. URLs reject credentials and redirect following is disabled. Each remote response is capped at 2 MiB. Set every Blackbox module timeout below `polling.timeout` to allow Blackbox to return a failed-probe result before PSSST’s collection deadline. The demo uses a 1s module and a 2s collection timeout.
 
+## Metric semantics
+
+Every series carries an explicit type, because a scraper that reads a counter
+as a gauge loses every rate it could compute, and Datadog bills custom metrics
+per series.
+
+| Shape | Type | Meaning |
+| --- | --- | --- |
+| `*_total{outcome}` | counter | Cumulative attempts. `outcome` is bounded to `success` and `failure`. |
+| `*_timestamp_seconds` | gauge | Unix seconds. Zero means the event never happened, not "now". |
+| `*_seconds` | gauge | A duration or an age in seconds. |
+| boolean gauges | gauge | 1 or 0 only, never a third value. |
+| `psp_info`, `psp_exporter_build_info` | gauge | Always 1; join on `psp` to filter by `kind`. |
+
+Three counters separate the two failure modes that a gauge cannot tell apart:
+`psp_status_poll_total` counts declared-source polls, `psp_probe_collection_total`
+counts attempts to reach Blackbox, and `psp_probe_result_total` counts only the
+probes Blackbox actually reported on. A rising collection failure rate means we
+cannot measure; a rising result failure rate means the provider is failing.
+
+Labels stay bounded by construction: `psp` and `endpoint` come from the
+configuration, `severity` and `outcome` from documented enums, `component` from
+an explicit mapping, `kind` from a three-value enum. Nothing remote ever becomes
+a label.
+
+## Logging
+
+Structured JSON on stderr, one object per line, with `service` and `version` on
+every record so a shared index can tell two deployments apart. The level is set
+with `-log-level` or `PSSST_LOG_LEVEL` (`debug`, `info`, `warn`, `error`); an
+unknown name is reported and falls back to info rather than preventing startup.
+
+| Level | What goes there |
+| --- | --- |
+| DEBUG | Poll start and completion with `duration_ms`, and what the snapshot contained. |
+| INFO | Startup with the resolved configuration, and declared incidents appearing or clearing. |
+| WARN | A failed collection, and a probe that Blackbox collected but reports as failed. |
+| ERROR | A cache update rejected by the configured inventory, and a fatal startup problem. |
+
+A collected but failing probe is a WARN rather than an ERROR on purpose: that
+one is the provider failing, not this service.
+
 ## Endpoints and lifecycle
 
 `/healthz` reports process liveness. `/readyz` becomes successful only after every configured status worker and probe worker has completed its first attempt; an upstream failure still counts as an attempt. Readiness becomes false during shutdown. `/metrics` only reads the in-memory cache and never makes upstream I/O.
@@ -199,6 +241,31 @@ into the existing scrape configuration and add
 [deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml) to its `rule_files`,
 then reload. Publish the exporter on the NAS address rather than loopback:
 Prometheus runs in a container and cannot reach the host loopback.
+
+## Run on Kubernetes
+
+[deploy/kustomization.yaml](deploy/kustomization.yaml) renders the whole stack:
+
+```sh
+kubectl kustomize deploy | kubectl apply -f -
+```
+
+The inventory is generated into a ConfigMap rather than copied, so the cluster
+and the compose stack cannot drift, and the generated name carries a content
+hash so an inventory change rolls the pods instead of leaving them on a stale
+mount.
+
+Liveness asks only whether the process still serves HTTP. Readiness waits for
+every source and probe to have been tried once, so a rolling update never sends
+scrapes to an empty cache, and the first pass gets its own startup budget rather
+than being mistaken for a liveness failure.
+
+The pod is scraped three ways without changing anything: `prometheus.io/*`
+annotations for a plain Prometheus, a ServiceMonitor for the Prometheus
+Operator (delete it from the kustomization if the CRD is absent), and a Datadog
+Autodiscovery check. The Datadog metric list is explicit rather than a wildcard,
+because custom metrics are billed per series and a wildcard would ship every
+future series without anyone deciding to.
 
 ## Add a PSP or adapter
 
