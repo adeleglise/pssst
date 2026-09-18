@@ -22,6 +22,10 @@ type StatusState struct {
 	LastSuccess time.Time
 	StaleAfter  time.Duration
 	Data        status.Snapshot
+	// Cumulative poll outcomes. They only ever grow, so a scraper can derive
+	// an error rate that a gauge of the last outcome cannot express.
+	PollSuccess uint64
+	PollFailure uint64
 }
 type ProbeState struct {
 	Up                    bool
@@ -31,6 +35,13 @@ type ProbeState struct {
 	LastCollectionSuccess time.Time
 	StaleAfter            time.Duration
 	Data                  blackbox.Result
+	// Collection counts every attempt to reach Blackbox; result counts only
+	// the probes Blackbox actually reported on. Keeping them apart is what
+	// separates "we could not measure" from "the provider failed".
+	CollectionSuccess uint64
+	CollectionFailure uint64
+	ResultSuccess     uint64
+	ResultFailure     uint64
 }
 type PSPState struct {
 	ID     string
@@ -70,6 +81,9 @@ func (c *Cache) UpdateStatus(id string, data status.Snapshot, up bool, now time.
 		s.Status.Data = cloneStatus(data)
 		s.Status.HasData = true
 		s.Status.LastSuccess = now
+		s.Status.PollSuccess++
+	} else {
+		s.Status.PollFailure++
 	}
 	c.states[id] = s
 	return nil
@@ -87,12 +101,18 @@ func (c *Cache) UpdateProbe(id, endpoint string, data blackbox.Result, up bool, 
 	}
 	p.LastPoll = now
 	p.Up = up
-	if up {
+	if !up {
+		p.CollectionFailure++
+	} else {
 		p.Data = cloneProbe(data)
 		p.HasData = true
 		p.LastCollectionSuccess = now
+		p.CollectionSuccess++
 		if data.Success {
 			p.LastSuccess = now
+			p.ResultSuccess++
+		} else {
+			p.ResultFailure++
 		}
 	}
 	s.Probes[endpoint] = p

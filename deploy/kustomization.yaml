@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The kustomization sits here, not under kubernetes/, because kustomize refuses
+# to read files outside its own directory. That constraint is welcome: the
+# inventory stays the single source of truth and is generated into a ConfigMap
+# rather than copied, so the cluster and the compose stack cannot drift apart.
+#
+# The generated names carry a content hash, so changing the inventory rolls the
+# pods instead of leaving them on a stale mount.
+configMapGenerator:
+  - name: pssst-config
+    files:
+      - config.yml=pssst.psp.yml
+  - name: pssst-blackbox-config
+    files:
+      - blackbox.yml=blackbox/blackbox.yml
+
+resources:
+  - kubernetes/deployment.yaml
+  - kubernetes/blackbox.yaml
+  - kubernetes/servicemonitor.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: pssst
+    includeSelectors: false

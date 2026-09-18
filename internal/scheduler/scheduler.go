@@ -39,8 +39,12 @@ func New(cfg config.Config, c *cache.Cache, logger *slog.Logger) *Scheduler {
 		if provider, ok := statusProvider(psp, cfg.Polling.Timeout); ok {
 			previous := map[string]status.Incident{}
 			s.workers = append(s.workers, worker{interval: cfg.Polling.StatusInterval, poll: func(ctx context.Context) {
+				logger.Debug("status poll started", "psp", psp.ID, "signal", "status", "source_type", psp.Status.Type)
+				started := time.Now()
 				data, err := provider.Fetch(ctx)
+				elapsed := time.Since(started)
 				if ctx.Err() != nil {
+					logger.Debug("status poll abandoned during shutdown", "psp", psp.ID, "signal", "status")
 					return
 				}
 				if updateErr := c.UpdateStatus(psp.ID, data, err == nil, time.Now()); updateErr != nil {
@@ -48,9 +52,15 @@ func New(cfg config.Config, c *cache.Cache, logger *slog.Logger) *Scheduler {
 					return
 				}
 				if err != nil {
-					logger.Warn("status collection failed", "psp", psp.ID, "error_class", "upstream_or_payload")
+					logger.Warn("status collection failed", "psp", psp.ID, "signal", "status",
+						"source_type", psp.Status.Type, "error_class", "upstream_or_payload",
+						"duration_ms", elapsed.Milliseconds())
 					return
 				}
+				logger.Debug("status poll completed", "psp", psp.ID, "signal", "status",
+					"duration_ms", elapsed.Milliseconds(),
+					"components", len(data.Components), "incidents", len(data.Details),
+					"maintenance_active", data.MaintenanceActive, "maintenance_scheduled", data.MaintenanceScheduled)
 				// Only bounded adapter-normalized details enter logs, never incident prose.
 				current := make(map[string]status.Incident, len(data.Details))
 				for _, incident := range data.Details {
@@ -69,8 +79,12 @@ func New(cfg config.Config, c *cache.Cache, logger *slog.Logger) *Scheduler {
 		}
 		for _, probe := range psp.Probes {
 			s.workers = append(s.workers, worker{interval: cfg.Polling.ProbeInterval, poll: func(ctx context.Context) {
+				logger.Debug("probe collection started", "psp", psp.ID, "endpoint", probe.ID, "signal", "probe", "module", probe.Module)
+				started := time.Now()
 				data, err := probes.Probe(ctx, probe.Module, probe.Target)
+				elapsed := time.Since(started)
 				if ctx.Err() != nil {
+					logger.Debug("probe collection abandoned during shutdown", "psp", psp.ID, "endpoint", probe.ID, "signal", "probe")
 					return
 				}
 				if updateErr := c.UpdateProbe(psp.ID, probe.ID, data, err == nil, time.Now()); updateErr != nil {
@@ -78,8 +92,20 @@ func New(cfg config.Config, c *cache.Cache, logger *slog.Logger) *Scheduler {
 					return
 				}
 				if err != nil {
-					logger.Warn("probe collection failed", "psp", psp.ID, "endpoint", probe.ID, "error_class", "upstream_or_payload")
+					logger.Warn("probe collection failed", "psp", psp.ID, "endpoint", probe.ID, "signal", "probe",
+						"module", probe.Module, "error_class", "upstream_or_payload",
+						"duration_ms", elapsed.Milliseconds())
+					return
 				}
+				// A collected failure is the provider failing, not us. It is
+				// worth a WARN; a collected success stays at DEBUG.
+				if !data.Success {
+					logger.Warn("observed probe failed", "psp", psp.ID, "endpoint", probe.ID, "signal", "probe",
+						"module", probe.Module, "probe_duration_seconds", data.DurationSeconds)
+					return
+				}
+				logger.Debug("probe collection completed", "psp", psp.ID, "endpoint", probe.ID, "signal", "probe",
+					"duration_ms", elapsed.Milliseconds(), "probe_duration_seconds", data.DurationSeconds)
 			}})
 		}
 	}

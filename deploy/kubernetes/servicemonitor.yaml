@@ -1,0 +1,18 @@
+# For a cluster running the Prometheus Operator. Without the operator, delete
+# this file from the kustomization: the pod annotations already carry what a
+# plain Prometheus or a Datadog agent needs.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pssst
+  labels:
+    app.kubernetes.io/name: pssst
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pssst
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

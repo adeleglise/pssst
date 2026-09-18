@@ -1,0 +1,85 @@
+# Blackbox Exporter, reached only by PSSST. It is deliberately not scraped by
+# Prometheus here: PSSST already normalizes the probe results it needs, and
+# exposing raw Blackbox series would duplicate them under another name.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pssst-blackbox
+  labels:
+    app.kubernetes.io/name: pssst-blackbox
+    app.kubernetes.io/component: prober
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pssst-blackbox
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pssst-blackbox
+        app.kubernetes.io/component: prober
+      annotations:
+        ad.datadoghq.com/blackbox.checks: '{}'
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: blackbox
+          image: quay.io/prometheus/blackbox-exporter:v0.28.0
+          args: ["--config.file=/etc/blackbox/blackbox.yml"]
+          ports:
+            - name: http
+              containerPort: 9115
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/blackbox
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: pssst-blackbox-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pssst-blackbox
+  labels:
+    app.kubernetes.io/name: pssst-blackbox
+spec:
+  selector:
+    app.kubernetes.io/name: pssst-blackbox
+  ports:
+    - name: http
+      port: 9115
+      targetPort: http
+      protocol: TCP

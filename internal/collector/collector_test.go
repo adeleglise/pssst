@@ -65,7 +65,7 @@ psp_probe_success{endpoint="api",psp="demo"} 1
 		for _, m := range f.Metric {
 			for _, l := range m.Label {
 				switch l.GetName() {
-				case "psp", "endpoint", "component", "severity", "version", "kind":
+				case "psp", "endpoint", "component", "severity", "version", "kind", "outcome":
 				default:
 					t.Fatalf("unexpected label %s", l.GetName())
 				}
@@ -112,5 +112,81 @@ func TestInfoKindStaysBounded(t *testing.T) {
 	}
 	if len(seen) != len(config.Kinds) {
 		t.Errorf("psp_info exported %d kinds, want %d", len(seen), len(config.Kinds))
+	}
+}
+
+// Rates need cumulative counters, not gauges: a Datadog agent scraping this
+// endpoint must be able to compute an error rate over time. The outcome label
+// is bounded to two values so the series count stays predictable.
+func TestCountersAreCumulativeAndTyped(t *testing.T) {
+	cfg := config.Config{PSPs: []config.PSP{{
+		ID:     "demo",
+		Kind:   config.KindPSP,
+		Status: config.Status{Type: config.StatusTypeStatuspageV2, BaseURL: "https://status.example.test"},
+		Probes: []config.Probe{{ID: "api", Module: "http_2xx", Target: "https://api.example.test/"}},
+	}}}
+	c := cache.New(cfg)
+	now := time.Unix(1789000000, 0)
+
+	// Two status polls: one good, one failed.
+	if err := c.UpdateStatus("demo", status.Snapshot{Components: map[string]bool{"overall": true}}, true, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.UpdateStatus("demo", status.Snapshot{}, false, now); err != nil {
+		t.Fatal(err)
+	}
+	// Three collections: one failed, one collected a failing probe, one good.
+	if err := c.UpdateProbe("demo", "api", blackbox.Result{}, false, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.UpdateProbe("demo", "api", blackbox.Result{Success: false}, true, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.UpdateProbe("demo", "api", blackbox.Result{Success: true}, true, now); err != nil {
+		t.Fatal(err)
+	}
+
+	reg := prometheus.NewPedanticRegistry()
+	reg.MustRegister(New(c, "test"))
+	families, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	counters := map[string]map[string]float64{}
+	types := map[string]string{}
+	for _, f := range families {
+		if !strings.HasSuffix(f.GetName(), "_total") {
+			continue
+		}
+		types[f.GetName()] = f.GetType().String()
+		counters[f.GetName()] = map[string]float64{}
+		for _, m := range f.Metric {
+			outcome := ""
+			for _, l := range m.Label {
+				if l.GetName() == "outcome" {
+					outcome = l.GetValue()
+				}
+			}
+			counters[f.GetName()][outcome] = m.GetCounter().GetValue()
+		}
+	}
+
+	for name, want := range map[string]map[string]float64{
+		"psp_status_poll_total":      {"success": 1, "failure": 1},
+		"psp_probe_collection_total": {"success": 2, "failure": 1},
+		"psp_probe_result_total":     {"success": 1, "failure": 1},
+	} {
+		if types[name] != "COUNTER" {
+			t.Errorf("%s type = %q, want COUNTER", name, types[name])
+		}
+		for outcome, value := range want {
+			if got := counters[name][outcome]; got != value {
+				t.Errorf("%s{outcome=%q} = %v, want %v", name, outcome, got, value)
+			}
+		}
+		if len(counters[name]) != 2 {
+			t.Errorf("%s has %d outcome values, want exactly 2", name, len(counters[name]))
+		}
 	}
 }
