@@ -1,18 +1,23 @@
 # Scrape job to merge into the existing Prometheus configuration on the NAS.
-# Append this job to its scrape_configs list and add the rule file below to its
-# rule_files list, then reload. Nothing else in that configuration changes.
 #
-#   rule_files:
-#     - /etc/prometheus/pssst.rules.yml
+# The pssst stack joins the monitoring_default network, the same one Prometheus
+# runs on, so Prometheus resolves the service by name and no port is published
+# on the host. The exporter serves cached state, so a scrape never waits on a
+# provider.
 #
-# The exporter serves cached state, so a 30s scrape never waits on a provider.
-# Keep the interval at or above the existing global default.
+# Two edits in /volume2/repos/misc/projects/nas-signoz/prometheus:
+#
+#   1. copy pssst.yml there as pssst.rules.yml
+#   2. add it to the existing rule_files list:
+#        - /etc/prometheus/pssst.rules.yml
+#   3. append the job below to the existing scrape_configs list
+#
+# Then reload, which is enabled on that instance:
+#   curl -X POST http://192.168.1.250:9090/-/reload
 
 scrape_configs:
   - job_name: pssst
     scrape_interval: 30s
     scrape_timeout: 10s
     static_configs:
-      # The stack publishes the exporter on the NAS address. Prometheus runs in
-      # a container, so a loopback-only publish would be unreachable for it.
-      - targets: ["192.168.1.250:9099"]
+      - targets: ["pssst:9099"]
