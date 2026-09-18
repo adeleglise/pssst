@@ -14,6 +14,7 @@ import (
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/config"
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/status"
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/adyen"
+	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/hipay"
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/instatus"
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/paypal"
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/statuspage"
@@ -93,6 +94,8 @@ func statusProvider(psp config.PSP, timeout time.Duration) (status.StatusProvide
 		return statuspage.New(psp.Status.BaseURL, psp.Status.Headers, psp.Status.Components, timeout), true
 	case config.StatusTypeInstatusV1:
 		return instatus.New(psp.Status.BaseURL, psp.Status.Headers, psp.Status.Components, timeout), true
+	case config.StatusTypeHiPayV1:
+		return hipay.New(psp.Status.BaseURL, psp.Status.Headers, psp.Status.Components, timeout), true
 	case config.StatusTypeAdyenV1:
 		return adyen.New(psp.Status.BaseURL, psp.Status.Headers, timeout), true
 	case config.StatusTypePayPalV1:

@@ -37,6 +37,7 @@ const (
 	StatusTypeInstatusV1   = "instatus_v1"
 	StatusTypeAdyenV1      = "adyen_v1"
 	StatusTypePayPalV1     = "paypal_v1"
+	StatusTypeHiPayV1      = "hipay_v1"
 )
 
 var envReference = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
@@ -195,7 +196,7 @@ func (c Config) validate() error {
 			if p.Status.BaseURL != "" || len(p.Status.Headers) > 0 || len(p.Status.Components) > 0 {
 				return fmt.Errorf("%s.status: none cannot have a URL, headers or components", prefix)
 			}
-		case StatusTypeStatuspageV2, StatusTypeInstatusV1:
+		case StatusTypeStatuspageV2, StatusTypeInstatusV1, StatusTypeHiPayV1:
 			if !validURL(p.Status.BaseURL, true) {
 				return fmt.Errorf("%s.status.base_url must be an HTTP(S) URL without credentials, query or fragment", prefix)
 			}
@@ -209,7 +210,7 @@ func (c Config) validate() error {
 				return fmt.Errorf("%s.status: this source publishes no components", prefix)
 			}
 		default:
-			return fmt.Errorf("%s.status.type must be statuspage_v2, instatus_v1, adyen_v1, paypal_v1 or none", prefix)
+			return fmt.Errorf("%s.status.type must be statuspage_v2, instatus_v1, hipay_v1, adyen_v1, paypal_v1 or none", prefix)
 		}
 		if !validHeaders(p.Status.Headers) {
 			return fmt.Errorf("%s.status.headers are invalid", prefix)

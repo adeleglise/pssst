@@ -315,7 +315,15 @@ psps:
     display_name: HiPay
     kind: psp
     status:
-      type: none
+      # The page renders client side; base_url is the monitor-list API it calls,
+      # whose path carries the public page key.
+      type: hipay_v1
+      base_url: "https://status.hipay.com/api/getMonitorList/ngXkVS7n50"
+      components:
+        console: "786615407"
+        hosted_fields: "783426652"
+        payment_consultation: "780299550"
+        pci_healthcheck: "795616939"
     probes:
       - id: api_https
         module: http_api_reachable
