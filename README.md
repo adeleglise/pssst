@@ -59,10 +59,10 @@ The parser accepts exactly one YAML document, rejects unknown and duplicate fiel
 | `psps[].id` | Stable, unique metric identifier. IDs are 1–64 alphanumeric, `_`, `.`, or `-` characters and start with an alphanumeric character or `_`. |
 | `psps[].display_name` | Optional human-facing name; it is never a metric label. |
 | `psps[].kind` | Entity class, one of `psp`, `acquirer`, `bank`. Defaults to `psp`. Exported by `psp_info`, never as a label on other metrics. |
-| `psps[].status.type` | `statuspage_v2`, `instatus_v1`, or `none`. `none` is unconfigured declared status, not a healthy source. |
+| `psps[].status.type` | `statuspage_v2`, `instatus_v1`, `adyen_v1`, `paypal_v1`, or `none`. `none` is unconfigured declared status, not a healthy source. |
 | `psps[].status.base_url` | Required HTTP(S) status page base URL for any adapter but `none`; no credentials, query, or fragment. Redirects are refused, so use the canonical host. |
 | `psps[].status.headers` | Optional bounded Statuspage headers, normally containing an environment-expanded secret. |
-| `psps[].status.components` | Optional stable local component ID to upstream Statuspage component ID map. `overall` is reserved. |
+| `psps[].status.components` | Optional stable local component ID to upstream component ID map, for `statuspage_v2` and `instatus_v1` only. `overall` is reserved. Sources that publish no components reject it rather than ignoring it. |
 | `psps[].probes[].id` | Stable endpoint ID, unique within its PSP. |
 | `psps[].probes[].module` | A configured Blackbox module identifier. PSSST validates its shape; Blackbox owns module policy. |
 | `psps[].probes[].target` | HTTP(S) URL or `host:port`, without credentials or fragments. |
@@ -83,9 +83,16 @@ Staleness is per source or endpoint: `3 * (interval + jitter + timeout)`. Before
 | --- | --- | --- |
 | `statuspage_v2` | `/api/v2/summary.json` | One current-state document. Not paginated: it carries unresolved incidents and upcoming maintenance only, so PSSST ingests no history. |
 | `instatus_v1` | `/summary.json` and `/v2/components.json` | Instatus splits current state over two documents; both must succeed or the snapshot fails as a whole. Its impact scale stops at `MAJOROUTAGE`, so `critical` never originates from it. |
+| `adyen_v1` | `/api/incident-messages/active` | Adyen's own API. Active incidents only: it publishes no component inventory and no machine-readable maintenance list, so those stay at zero. |
+| `paypal_v1` | `/api/v1/events` | The API behind PayPal's status page, which also serves Braintree. Events carry a state, a type and an environment; only `production` events count. An open maintenance window is active or scheduled depending on its start date. |
 | `none` | none | The provider publishes no machine-readable source. Declared status is absent, not healthy. |
 
-Both adapters accept what real pages publish rather than an idealized schema:
+`adyen_v1` and `paypal_v1` read provider-specific APIs that are not a public
+contract and can change without notice. Both treat remote text as untrusted: an
+incident whose identifier is not already a safe token is still counted, but
+never reaches a log field.
+
+The page adapters accept what real pages publish rather than an idealized schema:
 an omitted empty incident list means nothing is active, and a scheduled
 maintenance with no date still counts but cannot become the next start. A
 missing `components` array or page indicator remains a failed retrieval.
@@ -149,8 +156,13 @@ Import `deploy/grafana/pssst.json` into the existing Grafana and select its exis
 ## Deploy on the NAS
 
 [deploy/pssst.psp.yml](deploy/pssst.psp.yml) is the real inventory: twenty-three
-providers, fourteen of them with a declared source. Every URL and component ID
-in it was resolved against the live page before being written down.
+providers, sixteen of them with a declared source. Every URL and component ID in
+it was resolved against the live page before being written down.
+
+Seven providers publish no machine-readable source at all: Checkout.com hides
+its Statuspage behind SSO, and Qonto, HiPay, Mangopay, Fintecture, Bridge and
+Treezor render state in HTML with no API behind it. They carry the observed
+signal alone until an ingestion path exists for them.
 
 [deploy/compose.nas.yml](deploy/compose.nas.yml) runs the exporter and its own
 Blackbox instance. It carries no Prometheus: the instance already running on the

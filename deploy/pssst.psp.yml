@@ -251,13 +251,17 @@ psps:
         target: "api.swan.io:443"
 
   # ----------------------------------------- Observed signal only, no published
-  # machine-readable status source found. Recheck before assuming none exists:
-  # pssst-check qualifies a candidate URL in one command.
+  # machine-readable status source found: their pages render state in HTML with
+  # no API behind them. Recheck before assuming none exists; pssst-check
+  # qualifies a candidate URL in one command.
+  # --------------------------------------------- Provider-specific status APIs
   - id: adyen
     display_name: Adyen
     kind: psp
     status:
-      type: none
+      # Adyen publishes active incidents only: no components, no maintenance.
+      type: adyen_v1
+      base_url: "https://status.adyen.com"
     probes:
       - id: api_https
         module: http_api_reachable
@@ -270,7 +274,9 @@ psps:
     display_name: PayPal
     kind: psp
     status:
-      type: none
+      # The same page and API also serve Braintree.
+      type: paypal_v1
+      base_url: "https://www.paypal-status.com"
     probes:
       - id: api_https
         module: http_api_reachable

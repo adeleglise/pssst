@@ -35,6 +35,8 @@ const (
 	StatusTypeNone         = "none"
 	StatusTypeStatuspageV2 = "statuspage_v2"
 	StatusTypeInstatusV1   = "instatus_v1"
+	StatusTypeAdyenV1      = "adyen_v1"
+	StatusTypePayPalV1     = "paypal_v1"
 )
 
 var envReference = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
@@ -197,8 +199,17 @@ func (c Config) validate() error {
 			if !validURL(p.Status.BaseURL, true) {
 				return fmt.Errorf("%s.status.base_url must be an HTTP(S) URL without credentials, query or fragment", prefix)
 			}
+		case StatusTypeAdyenV1, StatusTypePayPalV1:
+			// These providers publish no component inventory, so a component
+			// mapping could never resolve and is rejected rather than ignored.
+			if !validURL(p.Status.BaseURL, true) {
+				return fmt.Errorf("%s.status.base_url must be an HTTP(S) URL without credentials, query or fragment", prefix)
+			}
+			if len(p.Status.Components) > 0 {
+				return fmt.Errorf("%s.status: this source publishes no components", prefix)
+			}
 		default:
-			return fmt.Errorf("%s.status.type must be statuspage_v2, instatus_v1 or none", prefix)
+			return fmt.Errorf("%s.status.type must be statuspage_v2, instatus_v1, adyen_v1, paypal_v1 or none", prefix)
 		}
 		if !validHeaders(p.Status.Headers) {
 			return fmt.Errorf("%s.status.headers are invalid", prefix)

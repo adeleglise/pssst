@@ -15,7 +15,9 @@ import (
 
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/config"
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/status"
+	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/adyen"
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/instatus"
+	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/paypal"
 	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/statuspage"
 )
 
@@ -24,7 +26,7 @@ const exitUsage = 2
 func main() { os.Exit(run()) }
 
 func run() int {
-	sourceType := flag.String("type", config.StatusTypeStatuspageV2, "Status source type: statuspage_v2 or instatus_v1")
+	sourceType := flag.String("type", config.StatusTypeStatuspageV2, "Status source type: statuspage_v2, instatus_v1, adyen_v1 or paypal_v1")
 	baseURL := flag.String("url", "", "Status page base URL")
 	components := flag.String("components", "", "Optional alias=remote_id pairs, comma separated")
 	timeout := flag.Duration("timeout", 10*time.Second, "Request timeout")
@@ -46,6 +48,10 @@ func run() int {
 		provider = statuspage.New(*baseURL, nil, mapping, *timeout)
 	case config.StatusTypeInstatusV1:
 		provider = instatus.New(*baseURL, nil, mapping, *timeout)
+	case config.StatusTypeAdyenV1:
+		provider = adyen.New(*baseURL, nil, *timeout)
+	case config.StatusTypePayPalV1:
+		provider = paypal.New(*baseURL, nil, *timeout)
 	default:
 		fmt.Fprintf(os.Stderr, "unsupported type %q\n", *sourceType)
 		return exitUsage
