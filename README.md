@@ -155,14 +155,21 @@ Import `deploy/grafana/pssst.json` into the existing Grafana and select its exis
 
 ## Deploy on the NAS
 
-[deploy/pssst.psp.yml](deploy/pssst.psp.yml) is the real inventory: twenty-three
-providers, sixteen of them with a declared source. Every URL and component ID in
-it was resolved against the live page before being written down.
+[deploy/pssst.psp.yml](deploy/pssst.psp.yml) is the real inventory: twenty-four
+providers, nineteen of them with a declared source. Every URL and component ID
+in it was resolved against the live page before being written down.
 
-Seven providers publish no machine-readable source at all: Checkout.com hides
-its Statuspage behind SSO, and Qonto, HiPay, Mangopay, Fintecture, Bridge and
-Treezor render state in HTML with no API behind it. They carry the observed
-signal alone until an ingestion path exists for them.
+Several providers host an unbranded Statuspage with no vanity domain, reachable
+only as `<name>.statuspage.io`: Fintecture, Treezor and Powens were found that
+way. Check that pattern before concluding a provider publishes nothing, and
+confirm the component names belong to the right company. Two lookalike pages
+were rejected during this inventory.
+
+Five providers publish no machine-readable source at all. Checkout.com hides its
+Statuspage behind SSO, Mangopay keeps its service status inside an authenticated
+dashboard, and Qonto, HiPay and Bridge render state in server-side HTML with no
+API behind it. They carry the observed signal alone until an ingestion path
+exists for them.
 
 [deploy/compose.nas.yml](deploy/compose.nas.yml) runs the exporter and its own
 Blackbox instance. It carries no Prometheus: the instance already running on the
