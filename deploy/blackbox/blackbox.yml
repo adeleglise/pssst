@@ -27,11 +27,16 @@ modules:
   tcp_connect:
     prober: tcp
     timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: true
   tls_connect:
     prober: tcp
     timeout: 5s
     tcp:
       tls: true
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: true
   dns:
     prober: dns
     timeout: 5s
