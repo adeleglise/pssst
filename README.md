@@ -59,10 +59,10 @@ The parser accepts exactly one YAML document, rejects unknown and duplicate fiel
 | `psps[].id` | Stable, unique metric identifier. IDs are 1–64 alphanumeric, `_`, `.`, or `-` characters and start with an alphanumeric character or `_`. |
 | `psps[].display_name` | Optional human-facing name; it is never a metric label. |
 | `psps[].kind` | Entity class, one of `psp`, `acquirer`, `bank`. Defaults to `psp`. Exported by `psp_info`, never as a label on other metrics. |
-| `psps[].status.type` | `statuspage_v2`, `instatus_v1`, `hipay_v1`, `adyen_v1`, `paypal_v1`, or `none`. `none` is unconfigured declared status, not a healthy source. |
+| `psps[].status.type` | `statuspage_v2`, `instatus_v1`, `hipay_v1`, `kener_v1`, `adyen_v1`, `paypal_v1`, or `none`. `none` is unconfigured declared status, not a healthy source. |
 | `psps[].status.base_url` | Required HTTP(S) status page base URL for any adapter but `none`; no credentials, query, or fragment. Redirects are refused, so use the canonical host. |
 | `psps[].status.headers` | Optional bounded Statuspage headers, normally containing an environment-expanded secret. |
-| `psps[].status.components` | Optional stable local component ID to upstream component ID map, for `statuspage_v2` and `instatus_v1` only. `overall` is reserved. Sources that publish no components reject it rather than ignoring it. |
+| `psps[].status.components` | Optional map from a stable local component ID to the upstream one. The local alias is what becomes a metric label and stays a strict token; the upstream key must match what the source publishes, which for `kener_v1` is the displayed label, spaces included. `overall` is reserved. Sources that publish no components reject the field rather than ignoring it. |
 | `psps[].probes[].id` | Stable endpoint ID, unique within its PSP. |
 | `psps[].probes[].module` | A configured Blackbox module identifier. PSSST validates its shape; Blackbox owns module policy. |
 | `psps[].probes[].target` | HTTP(S) URL or `host:port`, without credentials or fragments. |
@@ -84,6 +84,7 @@ Staleness is per source or endpoint: `3 * (interval + jitter + timeout)`. Before
 | `statuspage_v2` | `/api/v2/summary.json` | One current-state document. Not paginated: it carries unresolved incidents and upcoming maintenance only, so PSSST ingests no history. |
 | `instatus_v1` | `/summary.json` and `/v2/components.json` | Instatus splits current state over two documents; both must succeed or the snapshot fails as a whole. Its impact scale stops at `MAJOROUTAGE`, so `critical` never originates from it. |
 | `hipay_v1` | monitor-list API | The page renders client side, so its HTML carries no state; `base_url` is the full monitor-list URL it calls, whose path carries the public page key. Paginated, and the walk is bounded. It publishes no incident or maintenance list, so those stay at zero. |
+| `kener_v1` | the rendered page | Kener is open source but its API needs a key, so a public page is only readable as markup. The adapter parses the DOM and reads only the current-state node, never the daily history bars that reuse the same colour classes. Component keys are the displayed monitor names. |
 | `adyen_v1` | `/api/incident-messages/active` | Adyen's own API. Active incidents only: it publishes no component inventory and no machine-readable maintenance list, so those stay at zero. |
 | `paypal_v1` | `/api/v1/events` | The API behind PayPal's status page, which also serves Braintree. Events carry a state, a type and an environment; only `production` events count. An open maintenance window is active or scheduled depending on its start date. |
 | `none` | none | The provider publishes no machine-readable source. Declared status is absent, not healthy. |
@@ -157,7 +158,7 @@ Import `deploy/grafana/pssst.json` into the existing Grafana and select its exis
 ## Deploy on the NAS
 
 [deploy/pssst.psp.yml](deploy/pssst.psp.yml) is the real inventory: twenty-four
-providers, twenty of them with a declared source. Every URL and component ID
+providers, twenty-one of them with a declared source. Every URL and component ID
 in it was resolved against the live page before being written down.
 
 Several providers host an unbranded Statuspage with no vanity domain, reachable
@@ -166,10 +167,16 @@ way. Check that pattern before concluding a provider publishes nothing, and
 confirm the component names belong to the right company. Two lookalike pages
 were rejected during this inventory.
 
-Four providers publish no machine-readable source. Checkout.com hides its
-Statuspage behind SSO, Mangopay keeps its service status inside an authenticated
-dashboard, Qonto renders state in server-side HTML with no public API, and no
-status page was found for Bridge at all. They carry the observed signal alone.
+Three providers remain without a declared source. Checkout.com hides its
+Statuspage behind SSO, Mangopay keeps its service status inside an
+authenticated dashboard, and no status page was found for Bridge at all. They
+carry the observed signal alone.
+
+`kener_v1` is the only adapter that reads markup, and it is the weakest
+contract here. It is written to fail loudly: an upstream redesign takes the
+source down and surfaces as a stale declared signal, which is the intended
+outcome. A parser that guessed would be worse than no signal, because a false
+declared state feeds the correlation rules.
 
 A page that renders client side is worth a second look before giving up: its
 HTML carries no state, but the API it calls may be public. HiPay was recovered
