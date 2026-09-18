@@ -1,0 +1,11 @@
+# Merge into the existing Prometheus configuration on the NAS; do not replace
+# its existing global, rule_files, or scrape_configs blocks.
+#
+# Add deploy/prometheus/pssst.yml to the existing rule_files list, for example:
+#   - /etc/prometheus/rules/pssst.yml
+
+scrape_configs:
+  - job_name: pssst
+    static_configs:
+      # Use the address reachable from the NAS, not localhost on the NAS.
+      - targets: ["PSSST_HOST_OR_IP:9099"]

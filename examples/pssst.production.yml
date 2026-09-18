@@ -1,0 +1,42 @@
+# Copy this file outside the repository, replace example.invalid endpoints, and
+# provide referenced secrets through the process environment or a secret manager.
+server:
+  listen_address: ":9099"
+
+polling:
+  status_interval: 60s
+  probe_interval: 30s
+  timeout: 10s
+  jitter: 5s
+
+blackbox:
+  base_url: "http://blackbox-exporter.monitoring.svc:9115"
+  headers:
+    Authorization: "Bearer ${PSSST_BLACKBOX_TOKEN}"
+
+psps:
+  - id: example_statuspage
+    display_name: Example Statuspage PSP
+    status:
+      type: statuspage_v2
+      base_url: "https://status.example.invalid"
+      headers:
+        Authorization: "Bearer ${EXAMPLE_STATUS_TOKEN}"
+      components:
+        payment_api: payment-api
+    probes:
+      - id: payment_api
+        module: http_2xx
+        target: "https://api.example.invalid/health"
+      - id: payment_tls
+        module: tls_connect
+        target: "api.example.invalid:443"
+
+  - id: example_without_status_page
+    display_name: Example PSP without public status
+    status:
+      type: none
+    probes:
+      - id: payment_api
+        module: http_2xx
+        target: "https://api.example.invalid/health"

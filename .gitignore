@@ -1,0 +1,7 @@
+/bin/
+/.superpowers/
+/.worktrees/
+/coverage.out
+/.env
+/pssst.yml
+.DS_Store

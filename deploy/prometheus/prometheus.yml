@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+rule_files:
+  - /etc/prometheus/rules/pssst.yml
+
+scrape_configs:
+  - job_name: pssst
+    static_configs:
+      - targets: ["pssst:9099"]

@@ -1,0 +1,10 @@
+.git
+.superpowers
+.worktrees
+bin
+coverage.out
+.env
+.env.*
+pssst.yml
+*.key
+*.pem

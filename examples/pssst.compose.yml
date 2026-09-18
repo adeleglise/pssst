@@ -1,0 +1,24 @@
+server:
+  listen_address: ":9099"
+
+polling:
+  status_interval: 3s
+  probe_interval: 3s
+  timeout: 2s
+  jitter: 0s
+
+blackbox:
+  base_url: "http://blackbox_exporter:9115"
+
+psps:
+  - id: demo_payments
+    display_name: Demo Payments
+    status:
+      type: statuspage_v2
+      base_url: "http://fake_psp:8080"
+      components:
+        payment_api: payment-api
+    probes:
+      - id: payment_api
+        module: http_2xx_fast
+        target: "http://fake_psp:8080/payment-api/health"

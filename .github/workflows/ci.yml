@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.1"
+      - run: make fmt-check lint test test-race build
+      - name: Validate Prometheus rules
+        run: |
+          docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace quay.io/prometheus/prometheus:v3.14.0 check rules deploy/prometheus/pssst.yml
+          docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace quay.io/prometheus/prometheus:v3.14.0 test rules deploy/prometheus/pssst-rules-test.yml

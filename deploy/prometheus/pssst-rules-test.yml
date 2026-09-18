@@ -1,0 +1,292 @@
+rule_files:
+  - pssst.yml
+
+evaluation_interval: 1m
+group_eval_order:
+  - pssst.recording
+  - pssst.alerts
+
+tests:
+  - name: freshness gated states
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="a:9099",psp="confirmed",endpoint="api"}'
+        values: '1x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="a:9099",psp="confirmed",endpoint="api"}'
+        values: '300x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="a:9099",psp="confirmed",endpoint="api"}'
+        values: '60x6'
+      - series: 'psp_probe_success{job="pssst",instance="a:9099",psp="confirmed",endpoint="api"}'
+        values: '0x6'
+      - series: 'psp_status_source_configured{job="pssst",instance="a:9099",psp="confirmed"}'
+        values: '1x6'
+      - series: 'psp_status_source_up{job="pssst",instance="a:9099",psp="confirmed"}'
+        values: '1x6'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="a:9099",psp="confirmed"}'
+        values: '300x6'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="a:9099",psp="confirmed"}'
+        values: '60x6'
+      - series: 'psp_declared_operational{job="pssst",instance="a:9099",psp="confirmed",component="overall"}'
+        values: '1x6'
+      - series: 'psp_active_incidents{job="pssst",instance="a:9099",psp="confirmed",severity="major"}'
+        values: '1x6'
+      - series: 'psp_active_incidents{job="pssst",instance="a:9099",psp="confirmed",severity="unknown"}'
+        values: '1x6'
+      - series: 'psp_active_incidents{job="pssst",instance="a:9099",psp="confirmed",severity="none"}'
+        values: '1x6'
+
+      - series: 'psp_probe_collection_up{job="pssst",instance="a:9099",psp="unannounced",endpoint="api"}'
+        values: '1x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="a:9099",psp="unannounced",endpoint="api"}'
+        values: '300x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="a:9099",psp="unannounced",endpoint="api"}'
+        values: '60x6'
+      - series: 'psp_probe_success{job="pssst",instance="a:9099",psp="unannounced",endpoint="api"}'
+        values: '0x6'
+      - series: 'psp_status_source_configured{job="pssst",instance="a:9099",psp="unannounced"}'
+        values: '1x6'
+      - series: 'psp_status_source_up{job="pssst",instance="a:9099",psp="unannounced"}'
+        values: '1x6'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="a:9099",psp="unannounced"}'
+        values: '300x6'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="a:9099",psp="unannounced"}'
+        values: '60x6'
+      - series: 'psp_declared_operational{job="pssst",instance="a:9099",psp="unannounced",component="overall"}'
+        values: '1x6'
+      - series: 'psp_active_incidents{job="pssst",instance="a:9099",psp="unannounced",severity="major"}'
+        values: '0x6'
+
+      # No configured official source: it must not establish a pseudo-green status.
+      - series: 'psp_probe_collection_up{job="pssst",instance="b:9099",psp="none",endpoint="api"}'
+        values: '0x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="b:9099",psp="none",endpoint="api"}'
+        values: '300x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="b:9099",psp="none",endpoint="api"}'
+        values: '60x6'
+      - series: 'psp_status_source_configured{job="pssst",instance="b:9099",psp="none"}'
+        values: '0x6'
+
+      - series: 'psp_probe_collection_up{job="pssst",instance="b:9099",psp="collection",endpoint="api"}'
+        values: '0x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="b:9099",psp="collection",endpoint="api"}'
+        values: '300x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="b:9099",psp="collection",endpoint="api"}'
+        values: '60x6'
+
+      - series: 'psp_probe_collection_up{job="pssst",instance="b:9099",psp="stale",endpoint="api"}'
+        values: '1x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="b:9099",psp="stale",endpoint="api"}'
+        values: '0x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="b:9099",psp="stale",endpoint="api"}'
+        values: '60x6'
+      - series: 'psp_probe_success{job="pssst",instance="b:9099",psp="stale",endpoint="api"}'
+        values: '1x6'
+
+      - series: 'psp_status_source_configured{job="pssst",instance="b:9099",psp="source_stale"}'
+        values: '1x6'
+      - series: 'psp_status_source_up{job="pssst",instance="b:9099",psp="source_stale"}'
+        values: '0x6'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="b:9099",psp="source_stale"}'
+        values: '0x6'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="b:9099",psp="source_stale"}'
+        values: '60x6'
+
+      # A fresh healthy endpoint plus an unknown endpoint is unknown as a PSP.
+      - series: 'psp_probe_collection_up{job="pssst",instance="b:9099",psp="mixed_healthy",endpoint="known"}'
+        values: '1x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="b:9099",psp="mixed_healthy",endpoint="known"}'
+        values: '300x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="b:9099",psp="mixed_healthy",endpoint="known"}'
+        values: '60x6'
+      - series: 'psp_probe_success{job="pssst",instance="b:9099",psp="mixed_healthy",endpoint="known"}'
+        values: '1x6'
+      - series: 'psp_probe_collection_up{job="pssst",instance="b:9099",psp="mixed_healthy",endpoint="unknown"}'
+        values: '0x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="b:9099",psp="mixed_healthy",endpoint="unknown"}'
+        values: '0x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="b:9099",psp="mixed_healthy",endpoint="unknown"}'
+        values: '60x6'
+
+      # A known failed endpoint remains failed even when another is unknown.
+      - series: 'psp_probe_collection_up{job="pssst",instance="b:9099",psp="mixed_failed",endpoint="known"}'
+        values: '1x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="b:9099",psp="mixed_failed",endpoint="known"}'
+        values: '300x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="b:9099",psp="mixed_failed",endpoint="known"}'
+        values: '60x6'
+      - series: 'psp_probe_success{job="pssst",instance="b:9099",psp="mixed_failed",endpoint="known"}'
+        values: '0x6'
+      - series: 'psp_probe_collection_up{job="pssst",instance="b:9099",psp="mixed_failed",endpoint="unknown"}'
+        values: '0x6'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="b:9099",psp="mixed_failed",endpoint="unknown"}'
+        values: '0x6'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="b:9099",psp="mixed_failed",endpoint="unknown"}'
+        values: '60x6'
+
+      - series: 'psp_probe_ssl_earliest_cert_expiry_timestamp_seconds{job="pssst",instance="b:9099",psp="tls",endpoint="api"}'
+        values: '259500x6'
+      - series: 'psp_maintenance_next_start_timestamp_seconds{job="pssst",instance="b:9099",psp="maintenance"}'
+        values: '86400x6'
+      - series: 'psp:status_source_stale{job="pssst",instance="b:9099",psp="maintenance"}'
+        values: '0x6'
+    promql_expr_test:
+      - expr: psp:observed_unavailable
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:observed_unavailable{job="pssst",instance="a:9099",psp="confirmed"}'
+            value: 1
+          - labels: 'psp:observed_unavailable{job="pssst",instance="a:9099",psp="unannounced"}'
+            value: 1
+          - labels: 'psp:observed_unavailable{job="pssst",instance="b:9099",psp="mixed_failed"}'
+            value: 1
+      - expr: psp:declared_unavailable
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:declared_unavailable{job="pssst",instance="a:9099",psp="confirmed"}'
+            value: 1
+          - labels: 'psp:declared_unavailable{job="pssst",instance="a:9099",psp="unannounced"}'
+            value: 0
+      - expr: psp:confirmed_incident
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:confirmed_incident{job="pssst",instance="a:9099",psp="confirmed"}'
+            value: 1
+      - expr: psp:unannounced_failure
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:unannounced_failure{job="pssst",instance="a:9099",psp="unannounced"}'
+            value: 1
+      - expr: psp:status_source_stale
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:status_source_stale{job="pssst",instance="a:9099",psp="confirmed"}'
+            value: 0
+          - labels: 'psp:status_source_stale{job="pssst",instance="a:9099",psp="unannounced"}'
+            value: 0
+          - labels: 'psp:status_source_stale{job="pssst",instance="b:9099",psp="maintenance"}'
+            value: 0
+          - labels: 'psp:status_source_stale{job="pssst",instance="b:9099",psp="source_stale"}'
+            value: 1
+      - expr: min by (job, instance, psp) (psp_probe_ssl_earliest_cert_expiry_timestamp_seconds - time()) < 14 * 24 * 60 * 60
+        eval_time: 5m
+        exp_samples:
+          - labels: '{job="pssst",instance="b:9099",psp="tls"}'
+            value: 259200
+      - expr: (psp_maintenance_next_start_timestamp_seconds > time() and psp_maintenance_next_start_timestamp_seconds - time() < 7 * 24 * 60 * 60) and on (job, instance, psp) (psp:status_source_stale == 0)
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp_maintenance_next_start_timestamp_seconds{job="pssst",instance="b:9099",psp="maintenance"}'
+            value: 86400
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PSPObservedUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: a:9099
+              psp: confirmed
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for confirmed on a:9099 has been unavailable for at least five minutes.
+          - exp_labels:
+              job: pssst
+              instance: a:9099
+              psp: unannounced
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for unannounced on a:9099 has been unavailable for at least five minutes.
+          - exp_labels:
+              job: pssst
+              instance: b:9099
+              psp: mixed_failed
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for mixed_failed on b:9099 has been unavailable for at least five minutes.
+      - eval_time: 6m
+        alertname: PSPConfirmedIncident
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: a:9099
+              psp: confirmed
+              severity: critical
+            exp_annotations:
+              summary: Confirmed PSP incident
+              description: confirmed has matching observed failure and a fresh declared incident.
+
+  - name: certificate and maintenance alert timers require fresh data
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="c:9099",psp="tls",endpoint="api"}'
+        values: '1x17'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="c:9099",psp="tls",endpoint="api"}'
+        values: '0+60x17'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="c:9099",psp="tls",endpoint="api"}'
+        values: '120x17'
+      - series: 'psp_probe_ssl_earliest_cert_expiry_timestamp_seconds{job="pssst",instance="c:9099",psp="tls",endpoint="api"}'
+        values: '1000000x17'
+      - series: 'psp_status_source_configured{job="pssst",instance="c:9099",psp="maintenance"}'
+        values: '1x17'
+      - series: 'psp_status_source_up{job="pssst",instance="c:9099",psp="maintenance"}'
+        values: '1x17'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="c:9099",psp="maintenance"}'
+        values: '0+60x17'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="c:9099",psp="maintenance"}'
+        values: '120x17'
+      - series: 'psp_maintenance_next_start_timestamp_seconds{job="pssst",instance="c:9099",psp="maintenance"}'
+        values: '3600+60x17'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: PSPCertificateExpiringSoon
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: c:9099
+              psp: tls
+              severity: warning
+            exp_annotations:
+              summary: PSP endpoint certificate expires soon
+              description: At least one observed certificate for tls expires within 14 days.
+      - eval_time: 16m
+        alertname: PSPMaintenanceApproaching
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: c:9099
+              psp: maintenance
+              severity: info
+            exp_annotations:
+              summary: PSP maintenance approaches
+              description: maintenance has fresh declared maintenance scheduled within seven days.
+
+  - name: healthy startup and immediate mixed-collection transition
+    interval: 30s
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="a:9099",psp="transition",endpoint="known"}'
+        values: '1x4'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="a:9099",psp="transition",endpoint="known"}'
+        values: '1+30x4'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="a:9099",psp="transition",endpoint="known"}'
+        values: '60x4'
+      - series: 'psp_probe_success{job="pssst",instance="a:9099",psp="transition",endpoint="known"}'
+        values: '1x4'
+      - series: 'psp_probe_collection_up{job="pssst",instance="a:9099",psp="transition",endpoint="uncertain"}'
+        values: '1 1 0 0 0'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="a:9099",psp="transition",endpoint="uncertain"}'
+        values: '1 31 31 31 31'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="a:9099",psp="transition",endpoint="uncertain"}'
+        values: '60x4'
+      - series: 'psp_probe_success{job="pssst",instance="a:9099",psp="transition",endpoint="uncertain"}'
+        values: '1x4'
+    promql_expr_test:
+      - expr: psp:observed_unavailable
+        eval_time: 0m
+        exp_samples:
+          - labels: 'psp:observed_unavailable{job="pssst",instance="a:9099",psp="transition"}'
+            value: 0
+      - expr: psp:observed_unavailable
+        eval_time: 1m
+        exp_samples: []

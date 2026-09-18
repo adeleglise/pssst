@@ -1,0 +1,692 @@
+{
+  "id": null,
+  "uid": "pssst-payment-signals",
+  "title": "PSSST · Payment status signals",
+  "description": "Official declarations, independent probes, collection health and freshness. Requires the PSSST recording rules.",
+  "tags": [
+    "pssst",
+    "payments"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Two independent signals",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Official declarations and observed probes are separate. Failure panels show **1 = unavailable**, **0 = available**. Gaps mean unknown, stale, or unconfigured; never infer health from a gap. Collection/source panels show **1 = a valid latest response**. Install `deploy/prometheus/pssst.yml` recording rules for the failure panels. Select the existing Prometheus datasource above."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Observed endpoint failure",
+      "description": "Any configured endpoint failed a fresh probe. No result when there is no fresh observed evidence.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "psp:observed_unavailable{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"}",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Officially declared failure",
+      "description": "Fresh official components or unresolved incidents report a problem.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "psp:declared_unavailable{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"}",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Blackbox collection availability",
+      "description": "This is collection health, independent of whether the PSP probe succeeded.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "psp_probe_collection_up{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"}",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Official source availability",
+      "description": "Absent for status.type: none. Zero means the latest request failed; see freshness below.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "psp_status_source_up{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"}",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Probe duration",
+      "description": "Duration of fresh observations only; includes failed probes whose collection succeeded.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "psp_probe_duration_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} and on(job,instance,psp,endpoint) ((psp_probe_collection_up{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} == 1) and (time() - psp_probe_last_collection_success_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} <= psp_probe_stale_after_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"}))",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Unresolved incidents by severity",
+      "description": "Only valid fresh official snapshots are shown.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "psp_active_incidents{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} and on(job,instance,psp) (psp:status_source_stale{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} == 0)",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Official snapshot age",
+      "description": "Age since the last complete retrieval, not the last change on the status page.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(time() - psp_status_source_last_success_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"}) and (psp_status_source_last_success_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} > 0)",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Probe collection age",
+      "description": "",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(time() - psp_probe_last_collection_success_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"}) and (psp_probe_last_collection_success_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} > 0)",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "TLS certificate days remaining",
+      "description": "Only TLS probes with a certificate and a fresh successful collection appear.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((psp_probe_ssl_earliest_cert_expiry_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} - time()) / 86400) and on(job,instance,psp,endpoint) ((psp_probe_collection_up{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} == 1) and (time() - psp_probe_last_collection_success_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} <= psp_probe_stale_after_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"}))",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Hours until next maintenance",
+      "description": "",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((psp_maintenance_next_start_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} - time()) / 3600) and (psp_maintenance_next_start_timestamp_seconds{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} > time()) and on(job,instance,psp) (psp:status_source_stale{job=~\"$job\",instance=~\"$instance\",psp=~\"$psp\"} == 0)",
+          "legendFormat": "{{psp}} {{endpoint}} {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Prometheus",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "options": [],
+        "refresh": 1
+      },
+      {
+        "name": "job",
+        "label": "Job",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "query": "label_values(psp_exporter_build_info, job)",
+          "refId": "job"
+        },
+        "definition": "label_values(psp_exporter_build_info, job)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "allValue": null,
+        "options": [],
+        "current": {},
+        "sort": 1,
+        "hide": 0
+      },
+      {
+        "name": "instance",
+        "label": "Instance",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "query": "label_values(psp_status_source_configured{job=~\"$job\"}, instance)",
+          "refId": "instance"
+        },
+        "definition": "label_values(psp_status_source_configured{job=~\"$job\"}, instance)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "options": [],
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "hide": 0
+      },
+      {
+        "name": "psp",
+        "label": "PSP",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "query": "label_values(psp_status_source_configured{job=~\"$job\",instance=~\"$instance\"}, psp)",
+          "refId": "psp"
+        },
+        "definition": "label_values(psp_status_source_configured{job=~\"$job\",instance=~\"$instance\"}, psp)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "options": [],
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "hide": 0
+      }
+    ]
+  }
+}

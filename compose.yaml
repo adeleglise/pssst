@@ -1,0 +1,68 @@
+name: pssst-demo
+services:
+  psp_exporter:
+    image: localhost/pssst:dev
+    build:
+      context: .
+      target: exporter
+    volumes:
+      - ./examples/pssst.compose.yml:/etc/pssst/config.yml:ro
+    ports:
+      - "127.0.0.1:${PSSST_EXPORTER_PORT:-9099}:9099"
+    depends_on:
+      - blackbox_exporter
+      - fake_psp
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 15s
+    networks:
+      default:
+        aliases: [pssst]
+
+  blackbox_exporter:
+    image: quay.io/prometheus/blackbox-exporter:v0.28.0
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./deploy/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    ports:
+      - "127.0.0.1:${PSSST_BLACKBOX_PORT:-19115}:9115"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      default:
+        aliases: [blackbox-exporter]
+
+  prometheus:
+    image: quay.io/prometheus/prometheus:v3.14.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=2d
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/pssst.yml:/etc/prometheus/rules/pssst.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PSSST_PROMETHEUS_PORT:-19090}:9090"
+    depends_on: [psp_exporter]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  fake_psp:
+    image: localhost/pssst-fake:dev
+    build:
+      context: .
+      target: fake-psp
+    ports:
+      - "127.0.0.1:${PSSST_FAKE_PORT:-18080}:8080"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      default:
+        aliases: [fake-psp]
+volumes:
+  prometheus_data:

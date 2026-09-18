@@ -1,0 +1,42 @@
+modules:
+  http_2xx_fast:
+    prober: http
+    timeout: 1s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+  # A payment API that answers 401 or 404 on its root is reachable. Only a
+  # transport failure is an observed failure; authorization is not measured.
+  http_api_reachable:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+      valid_status_codes: [200, 201, 202, 204, 301, 302, 303, 307, 308, 400, 401, 403, 404, 405, 406, 410, 422]
+
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+  tls_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: true
+  dns:
+    prober: dns
+    timeout: 5s
+    dns:
+      preferred_ip_protocol: ip4
+      # Replace with the DNS name to check; target is the resolver host:port.
+      query_name: example.invalid
+      query_type: A

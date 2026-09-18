@@ -1,0 +1,156 @@
+groups:
+  - name: pssst.recording
+    interval: 30s
+    rules:
+      - record: psp:probe_collection_unavailable
+        expr: |
+          max by (job, instance, psp) (
+            (
+              (1 - psp_probe_collection_up)
+              + (psp_probe_last_collection_success_timestamp_seconds <= bool 0)
+              + (time() - psp_probe_last_collection_success_timestamp_seconds > bool psp_probe_stale_after_seconds)
+            ) > bool 0
+          )
+
+      # The job and instance labels deliberately remain in every aggregation.
+      # A second exporter replica must not make a failed replica look healthy.
+      # Unknown collection is absent here; it has its own collection alert.
+      - record: psp:observed_unavailable
+        expr: |
+          (
+            max by (job, instance, psp) (
+              (1 - psp_probe_success)
+              and on (job, instance, psp, endpoint) (psp_probe_collection_up == 1)
+              and on (job, instance, psp, endpoint) (psp_probe_last_collection_success_timestamp_seconds > 0)
+              and on (job, instance, psp, endpoint) (time() - psp_probe_last_collection_success_timestamp_seconds <= psp_probe_stale_after_seconds)
+            ) == 1
+          )
+          or
+          (
+            (max by (job, instance, psp) (
+              (1 - psp_probe_success)
+              and on (job, instance, psp, endpoint) (psp_probe_collection_up == 1)
+              and on (job, instance, psp, endpoint) (psp_probe_last_collection_success_timestamp_seconds > 0)
+              and on (job, instance, psp, endpoint) (time() - psp_probe_last_collection_success_timestamp_seconds <= psp_probe_stale_after_seconds)
+            ) == 0)
+            and on (job, instance, psp) (psp:probe_collection_unavailable == 0)
+          )
+
+      # A declared signal is meaningful only while its configured source has a
+      # complete, fresh snapshot. This rule is absent for status.type: none.
+      - record: psp:declared_unavailable
+        expr: |
+          (
+            (
+              max by (job, instance, psp) (1 - psp_declared_operational{component="overall"})
+              + max by (job, instance, psp) (psp_active_incidents > bool 0)
+            ) > bool 0
+            and on (job, instance, psp)
+            (
+              (psp_status_source_configured == 1)
+              and (psp_status_source_up == 1)
+              and (psp_status_source_last_success_timestamp_seconds > 0)
+              and (time() - psp_status_source_last_success_timestamp_seconds <= psp_status_source_stale_after_seconds)
+            )
+          )
+
+      - record: psp:status_source_stale
+        expr: |
+          (psp_status_source_configured == 1)
+          * on (job, instance, psp)
+          (
+            (
+              (1 - psp_status_source_up)
+              + (psp_status_source_last_success_timestamp_seconds <= bool 0)
+              + (time() - psp_status_source_last_success_timestamp_seconds > bool psp_status_source_stale_after_seconds)
+            ) > bool 0
+          )
+
+      - record: psp:confirmed_incident
+        expr: |
+          (psp:observed_unavailable == 1)
+          and on (job, instance, psp) (psp:declared_unavailable == 1)
+
+      # psp:declared_unavailable has a zero only for a fresh, configured source
+      # that reports no problem. It is absent for stale and type:none sources.
+      - record: psp:unannounced_failure
+        expr: |
+          (psp:observed_unavailable == 1)
+          and on (job, instance, psp) (psp:declared_unavailable == 0)
+
+  - name: pssst.alerts
+    interval: 30s
+    rules:
+      - alert: PSPObservedUnavailable
+        expr: psp:observed_unavailable == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Observed PSP endpoint failure
+          description: 'At least one configured endpoint for {{ $labels.psp }} on {{ $labels.instance }} has been unavailable for at least five minutes.'
+
+      - alert: PSPUnannouncedFailure
+        expr: psp:unannounced_failure == 1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: PSP endpoint failure without a declared incident
+          description: '{{ $labels.psp }} is failing while its fresh official status source reports no incident.'
+
+      - alert: PSPConfirmedIncident
+        expr: psp:confirmed_incident == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Confirmed PSP incident
+          description: '{{ $labels.psp }} has matching observed failure and a fresh declared incident.'
+
+      - alert: PSPStatusSourceUnavailable
+        expr: psp:status_source_stale == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: PSP official status source is unavailable or stale
+          description: 'PSSST has no fresh complete official status snapshot for {{ $labels.psp }}.'
+
+      - alert: PSPProbeCollectionUnavailable
+        expr: psp:probe_collection_unavailable == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Blackbox probe collection is unavailable
+          description: 'PSSST cannot obtain a valid Blackbox response for {{ $labels.psp }}.'
+
+      - alert: PSPCertificateExpiringSoon
+        expr: |
+          min by (job, instance, psp) (
+            (psp_probe_ssl_earliest_cert_expiry_timestamp_seconds - time())
+            and on (job, instance, psp, endpoint) (psp_probe_collection_up == 1)
+            and on (job, instance, psp, endpoint) (psp_probe_last_collection_success_timestamp_seconds > 0)
+            and on (job, instance, psp, endpoint) (time() - psp_probe_last_collection_success_timestamp_seconds <= psp_probe_stale_after_seconds)
+          ) < 14 * 24 * 60 * 60
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: PSP endpoint certificate expires soon
+          description: 'At least one observed certificate for {{ $labels.psp }} expires within 14 days.'
+
+      - alert: PSPMaintenanceApproaching
+        expr: |
+          (
+            psp_maintenance_next_start_timestamp_seconds > time()
+            and psp_maintenance_next_start_timestamp_seconds - time() < 7 * 24 * 60 * 60
+          )
+          and on (job, instance, psp) (psp:status_source_stale == 0)
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: PSP maintenance approaches
+          description: '{{ $labels.psp }} has fresh declared maintenance scheduled within seven days.'
