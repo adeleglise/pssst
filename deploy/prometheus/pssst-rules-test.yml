@@ -452,6 +452,106 @@ tests:
         alertname: PSPUnannouncedFailure
         exp_alerts: []
 
+  # Statuspage and Instatus report a component under maintenance as not
+  # operational, so declared is 1. The window still is not an incident.
+  - name: maintenance flagged on components is not a confirmed incident
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="f:9099",psp="maintenance_flagged",endpoint="api"}'
+        values: '1x14'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="f:9099",psp="maintenance_flagged",endpoint="api"}'
+        values: '1+60x14'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="f:9099",psp="maintenance_flagged",endpoint="api"}'
+        values: '315x14'
+      - series: 'psp_probe_success{job="pssst",instance="f:9099",psp="maintenance_flagged",endpoint="api"}'
+        values: '0x14'
+      - series: 'psp_status_source_configured{job="pssst",instance="f:9099",psp="maintenance_flagged"}'
+        values: '1x14'
+      - series: 'psp_status_source_up{job="pssst",instance="f:9099",psp="maintenance_flagged"}'
+        values: '1x14'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="f:9099",psp="maintenance_flagged"}'
+        values: '1+60x14'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="f:9099",psp="maintenance_flagged"}'
+        values: '225x14'
+      - series: 'psp_declared_operational{job="pssst",instance="f:9099",psp="maintenance_flagged",component="overall"}'
+        values: '0x14'
+      - series: 'psp_active_incidents{job="pssst",instance="f:9099",psp="maintenance_flagged",severity="major"}'
+        values: '0x14'
+      - series: 'psp_maintenance_active{job="pssst",instance="f:9099",psp="maintenance_flagged"}'
+        values: '1x14'
+    promql_expr_test:
+      - expr: psp:declared_unavailable
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:declared_unavailable{job="pssst",instance="f:9099",psp="maintenance_flagged"}'
+            value: 1
+      - expr: psp:confirmed_incident
+        eval_time: 5m
+        exp_samples: []
+      - expr: psp:unannounced_failure
+        eval_time: 5m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PSPObservedUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: f:9099
+              psp: maintenance_flagged
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for maintenance_flagged on f:9099 has been unavailable for at least five minutes.
+      - eval_time: 12m
+        alertname: PSPConfirmedIncident
+        exp_alerts: []
+
+  # An incident declared during a window is still an incident.
+  - name: an incident during maintenance is still confirmed
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="g:9099",psp="maintenance_incident",endpoint="api"}'
+        values: '1x14'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="g:9099",psp="maintenance_incident",endpoint="api"}'
+        values: '1+60x14'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="g:9099",psp="maintenance_incident",endpoint="api"}'
+        values: '315x14'
+      - series: 'psp_probe_success{job="pssst",instance="g:9099",psp="maintenance_incident",endpoint="api"}'
+        values: '0x14'
+      - series: 'psp_status_source_configured{job="pssst",instance="g:9099",psp="maintenance_incident"}'
+        values: '1x14'
+      - series: 'psp_status_source_up{job="pssst",instance="g:9099",psp="maintenance_incident"}'
+        values: '1x14'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="g:9099",psp="maintenance_incident"}'
+        values: '1+60x14'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="g:9099",psp="maintenance_incident"}'
+        values: '225x14'
+      - series: 'psp_declared_operational{job="pssst",instance="g:9099",psp="maintenance_incident",component="overall"}'
+        values: '0x14'
+      - series: 'psp_active_incidents{job="pssst",instance="g:9099",psp="maintenance_incident",severity="major"}'
+        values: '1x14'
+      - series: 'psp_maintenance_active{job="pssst",instance="g:9099",psp="maintenance_incident"}'
+        values: '1x14'
+    promql_expr_test:
+      - expr: psp:confirmed_incident
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:confirmed_incident{job="pssst",instance="g:9099",psp="maintenance_incident"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PSPConfirmedIncident
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: g:9099
+              psp: maintenance_incident
+              severity: critical
+            exp_annotations:
+              summary: Confirmed PSP incident
+              description: maintenance_incident has matching observed failure and a fresh declared incident.
+
   # Polls fail from 2m. The 61s snapshot stays usable through 4m, then ages
   # past 225s: declared becomes unknown and nothing may be called unannounced.
   - name: a stale status source silences the unannounced signal

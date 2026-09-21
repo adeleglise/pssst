@@ -75,10 +75,18 @@ groups:
             ) > bool 0
           )
 
+      # Statuspage and Instatus flag a component under maintenance as not
+      # operational. An open window without a declared incident is planned
+      # work, not an incident: only the observed-failure warning applies.
       - record: psp:confirmed_incident
         expr: |
           (psp:observed_unavailable == 1)
           and on (job, instance, psp) (psp:declared_unavailable == 1)
+          unless on (job, instance, psp)
+          (
+            (psp_maintenance_active > 0)
+            unless on (job, instance, psp) (sum by (job, instance, psp) (psp_active_incidents) > 0)
+          )
 
       # psp:declared_unavailable has a zero only for a fresh, configured source
       # that reports no problem. It is absent for stale and type:none sources.
