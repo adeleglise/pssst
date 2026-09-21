@@ -1,6 +1,11 @@
 RUNTIME ?= podman
 COMPOSE ?= $(RUNTIME) compose
 IMAGE ?= pssst:dev
+# The exporter reports this through -version, every log record and
+# psp_exporter_build_info. Tag v1.0.0 yields "1.0.0", like the versions
+# already deployed; an untagged commit yields its description rather than a
+# misleading version number.
+VERSION ?= $(or $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//'),dev)
 
 .PHONY: fmt fmt-check lint vuln test test-race build image up down rules-test smoke
 
@@ -31,12 +36,12 @@ test-race:
 
 build:
 	mkdir -p bin
-	go build -o bin/pssst ./cmd/psp-exporter
+	go build -ldflags="-X main.version=$(VERSION)" -o bin/pssst ./cmd/psp-exporter
 	go build -o bin/fake-psp ./cmd/fake-psp
 	go build -o bin/pssst-check ./cmd/pssst-check
 
 image:
-	$(RUNTIME) build --target exporter --tag $(IMAGE) .
+	$(RUNTIME) build --target exporter --build-arg VERSION=$(VERSION) --tag $(IMAGE) .
 
 up:
 	$(COMPOSE) up --build --detach
