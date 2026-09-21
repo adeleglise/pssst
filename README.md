@@ -287,18 +287,22 @@ psp_info{kind="bank"}
 
 [deploy/compose.nas.yml](deploy/compose.nas.yml) runs the exporter and its own
 Blackbox, and no Prometheus: an existing instance scrapes it and owns
-retention, rules and alerting. Build for the target architecture, the
-Dockerfile cross-compiles rather than emulating:
+retention, rules and alerting. Both images carry their configuration, so an
+inventory or module change ships as a new tag rather than an edited host file.
+Build for the target architecture, the Dockerfile cross-compiles rather than
+emulating:
 
 ```sh
-podman build --platform linux/amd64 --target exporter-nas --build-arg VERSION=x.y.z -t pssst:x.y.z .
+podman build --platform linux/amd64 --target exporter-nas --build-arg VERSION=1.0.0 -t localhost/pssst-nas:1.0.0 .
+podman build --platform linux/amd64 --target blackbox-nas -t localhost/pssst-blackbox-nas:1.0.0 .
 ```
 
 Merge [deploy/prometheus/pssst-scrape.yml](deploy/prometheus/pssst-scrape.yml)
 into the existing scrape configuration and add
 [deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml) to its `rule_files`.
-Join the network Prometheus already runs on and it resolves the exporter by
-service name, with no host port published.
+The stack joins `monitoring_default`, the network Prometheus already runs on,
+so Prometheus resolves the exporter by service name and no host port is
+published.
 
 ### Kubernetes
 
@@ -323,7 +327,8 @@ for a plain Prometheus, a ServiceMonitor for the Prometheus Operator (drop it
 from the kustomization if the CRD is absent), and a Datadog Autodiscovery check.
 The Datadog metric list is **explicit rather than a wildcard**: custom metrics
 are billed per series, and a wildcard would ship every future series without
-anyone deciding to. Adding a metric means adding it to that list.
+anyone deciding to. Adding a metric means adding it to that list, a counter
+without its `_total` suffix, which the OpenMetrics check does not match.
 
 ### Grafana
 
@@ -332,6 +337,14 @@ first tab answers the two questions worth asking at a glance: who is down, and
 who is in planned maintenance. The other three go deeper into declared status,
 observed probes and collection health. It is generated, never hand-edited; see
 that directory's README.
+
+## Releases
+
+Versions follow [CHANGELOG.md](CHANGELOG.md). Pushing a `vX.Y.Z` tag runs the
+offline checks again, builds static binaries with `make dist` and publishes
+them with their checksums and the matching changelog section. A tag without a
+changelog section fails the release. `make dist` reproduces the same bytes
+locally.
 
 ## Adding a provider
 
