@@ -1,0 +1,42 @@
+name: Release
+
+# A version tag publishes a GitHub release: the full offline check, then the
+# binaries from `make dist` and the matching CHANGELOG section as notes.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make fmt-check lint vuln test test-race
+      - name: Build release binaries
+        env:
+          TAG: ${{ github.ref_name }}
+        run: make dist VERSION="${TAG#v}"
+      - name: Extract release notes
+        env:
+          TAG: ${{ github.ref_name }}
+        # Fails the release when the CHANGELOG has no section for this tag.
+        run: |
+          awk -v version="${TAG#v}" '
+            $0 ~ "^## \\[" version "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag dist/*

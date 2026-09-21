@@ -5,3 +5,4 @@
 /.env
 /pssst.yml
 .DS_Store
+/dist/
