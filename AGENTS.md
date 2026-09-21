@@ -2,7 +2,8 @@
 
 Working notes for anyone, human or agent, changing this repository. The README
 says what PSSST does; this says what will break if you are careless, and what
-has already been paid for once.
+has already been paid for once. `CLAUDE.md`, `GEMINI.md` and `CODEX.md` only
+point here: edit this file, never those.
 
 ## The invariant
 
@@ -86,7 +87,34 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 | `internal/httpclient/` | Bounded GET: timeouts, size cap, no redirects, sanitized errors. |
 | `cmd/pssst-check/` | Operator tool: resolve one source, print the snapshot. |
 | `deploy/` | Inventory, rules, compose, Kubernetes, generated dashboard. |
+| `.github/workflows/` | `ci.yml`: every check plus the smoke test. `release.yml`: a tag becomes a release. |
+| `CHANGELOG.md` | One section per version; the release workflow publishes it as notes. |
+| `docs/validation.md` | Evidence gathered for the last release. |
 | `docs/specification.md` | The original brief, unmodified. |
+
+## Repository and releases
+
+`origin` is `github.com/adeleglise/pssst`, private and canonical; the module
+path matches it. `gitea` is a mirror: push `main` and every tag there too.
+
+Changes reach `main` through a pull request whose CI is green, `verify` and
+`smoke` both, after a review by someone who did not write the change. Go comes
+from `go.mod`; staticcheck and govulncheck are pinned there as tools, so
+bumping one is a `go.mod` change. Dependabot proposes updates weekly.
+
+A release, in order:
+
+1. Add a `## [X.Y.Z] - YYYY-MM-DD` section to `CHANGELOG.md` and record the
+   evidence in `docs/validation.md`. Merge.
+2. Tag `main`: `git tag -a vX.Y.Z -m vX.Y.Z`, then push the tag to `origin`
+   and `gitea`.
+3. The release workflow reruns the checks and the rule tests, builds the
+   binaries with `make dist` and publishes them with `SHA256SUMS`. It fails
+   when the changelog has no section for the tag.
+
+The exported version drops the `v`: tag `v1.0.0` reports `1.0.0` in
+`psp_exporter_build_info`, like the untagged 0.x builds did. `make dist` is
+reproducible: a local run of a tag gives the published checksums.
 
 ## Adding an adapter
 
@@ -159,6 +187,43 @@ layout through the v2 API.
 `deploy/`, not `deploy/kubernetes/`, so the inventory can be generated into a
 ConfigMap instead of duplicated.
 
+**A missing number is not zero.** HiPay's `psp.totalMonitors` was decoded into
+a plain `int`, so an absent key read as 0, the pagination stopped after one
+page and a partial list exported as healthy. A count the adapter relies on is
+a pointer, and its absence fails the snapshot.
+
+**Allow-list remote enums, never deny-list them.** The PayPal adapter kept
+only `open` production events and skipped the rest, so an unknown state or an
+empty environment silently left the provider operational. Skip only the
+values known to be irrelevant (`closed`, `sandbox`); anything else counts.
+
+**A failed poll is not a stale signal.** Rules gated on `*_up == 1` dropped a
+signal whose last success was still fresh, which restarted the `for` timer of
+every paging alert: a source failing one poll in ten could never page.
+Correlation rules look only at the age of the last success against
+`*_stale_after_seconds`; only the source-health rules look at the last attempt.
+
+**A maintenance window is not an incident.** Statuspage and Instatus mark a
+component under maintenance as not operational, so a failure inside an
+announced window paged as a critical incident. An open window excludes the
+provider from `psp:unannounced_failure`, and from `psp:confirmed_incident`
+unless an incident is declared alongside it.
+
+**Probe what the status page describes.** Adyen was probed on its test
+environment against a status page that describes production. Live payment
+APIs often sit behind a merchant-specific prefix, which is a customer
+identifier and stays out of the inventory: probe a shared live host instead,
+here `checkoutshopper-live.adyen.com`.
+
+**ripgrep searches stdin when stdin is not a terminal.** `rg --files` without
+a path hangs in scripts and CI; the Makefile always passes `.`. The
+ubuntu-24.04 runner does not ship ripgrep, so CI installs it.
+
+**The committed stack drifted from the deployed one.** `compose.nas.yml`
+described config mounts, a published port and no shared network, while the
+NAS ran images carrying their config on `monitoring_default`. Diff the live
+stack file against the repository before every deployment.
+
 ## Operating on the real infrastructure
 
 Production is read-only until explicitly authorized for that exact action.
@@ -169,3 +234,41 @@ rules are `ok` afterwards, through the API, not by assumption.
 
 Never publish a port that does not need publishing. The exporter joins the
 network its Prometheus already runs on and is reached by service name.
+
+### The NAS
+
+```text
+Portainer  https://192.168.1.250:19943   endpoint 2, stack 56 "pssst"
+Prometheus http://192.168.1.250:9090     3.11.3, stack "monitoring", reload enabled
+Rules      nas-signoz/prometheus/pssst.rules.yml, relative in rule_files,
+           reachable over NFS at /Volumes/repos-nas/misc/projects/nas-signoz
+Token      macOS keychain, service portainer-api-token; never in a file
+```
+
+No registry serves the images: they are built on a workstation and loaded.
+Deploying version X.Y.Z, from a clean checkout of its tag:
+
+1. Build both images for the NAS architecture. The Dockerfile cross-compiles,
+   so nothing is emulated:
+   `podman build --platform linux/amd64 --target exporter-nas --build-arg VERSION=X.Y.Z -t localhost/pssst-nas:X.Y.Z .`
+   and the same with `--target blackbox-nas -t localhost/pssst-blackbox-nas:X.Y.Z`.
+2. Check the result: `podman run --rm localhost/pssst-nas:X.Y.Z -version`
+   prints `X.Y.Z`, and `/etc/pssst/config.yml` copied out of the image equals
+   the tag's `deploy/pssst.psp.yml`.
+3. Load both into the NAS engine: `podman save --format docker-archive -m`
+   into a tar, then `POST /api/endpoints/2/docker/images/load` on Portainer.
+   The image IDs on the NAS must match the local ones.
+4. Save the live stack file (`GET /api/stacks/56/file`), diff it against
+   `deploy/compose.nas.yml`, then `PUT /api/stacks/56?endpointId=2` with that
+   file and `pullImage: false`, since the images are local.
+5. For rules: copy the Prometheus directory aside, drop the candidate in as
+   `pssst.rules.yml`, and run `promtool check config` there with the promtool
+   of the production version. Then back up the live file as
+   `pssst.rules.yml.bak.<epoch>`, replace it and `POST /-/reload`.
+6. Verify through the API: `psp_exporter_build_info` reports `X.Y.Z`, every
+   configured source and probe is up, all pssst rules are `ok`. A reload
+   restarts every pending `for` timer, so maintenance alerts reappear after
+   their fifteen minutes.
+
+Rollback: the previous images stay on the NAS; restore the saved stack file
+and the rules backup, then reload.

@@ -77,8 +77,21 @@ succeed against it through a local Blackbox 0.28.0: HTTP 200 and TLS.
 - An open window mutes the unannounced and confirmed signals for the whole
   provider, even when it covers an unrelated component.
 
-## Not done
+## Deployment
 
-v1.0.0 is not deployed. The NAS still runs 0.5.0 and the 724c10b rules.
-Deploying means building both NAS images at 1.0.0, updating the Portainer
-stack, copying the new rules file and reloading Prometheus.
+Deployed on the NAS on 2026-09-21 with the procedure in `AGENTS.md`, then
+verified through the Prometheus and Portainer APIs.
+
+| Check | Result |
+| --- | --- |
+| Release binaries | Six binaries and `SHA256SUMS` published; a local `make dist` of the tag gives the same six hashes. |
+| Images | Built from the tag for linux/amd64; the exporter reports `1.0.0` and carries the tag's inventory. The Blackbox image is byte-identical to 0.4.0, its configuration unchanged. |
+| Rules | Full Prometheus configuration and rule tests validated with promtool 3.11.3, the production version, before the swap. |
+| Stack | Both containers on `localhost/*:1.0.0`, `monitoring_default`, no published port. |
+| `psp_exporter_build_info` | `version="1.0.0"`, target `up`. |
+| Signals | 21 of 21 declared sources up, 48 of 48 probes successful, Adyen `checkout_web_https` answering 200. |
+| Rules after reload | 14 loaded, all `ok`; no unannounced failure, no confirmed incident. |
+
+Rollback material: the 0.5.0 images stay on the NAS, the previous stack file
+is saved outside the repository, and the previous rules are in
+`pssst.rules.yml.bak.1790016984` next to the live file.

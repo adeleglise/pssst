@@ -3,6 +3,9 @@
 **P**ayment **S**tatus **S**ignals & **S**urveillance **T**ool. A Prometheus
 exporter that answers one question about a payment provider: is it working?
 
+Releases are listed in [CHANGELOG.md](CHANGELOG.md); the evidence behind the
+last one is in [docs/validation.md](docs/validation.md).
+
 It answers it twice, on purpose.
 
 - **Declared status** is what the provider says about itself, read from its own
@@ -134,10 +137,10 @@ before being written down.
 | --- | --- | --- |
 | `statuspage_v2` | `/api/v2/summary.json` | Atlassian Statuspage. Current state only, not paginated, so no history is ingested. |
 | `instatus_v1` | `/summary.json` + `/v2/components.json` | Instatus splits current state over two documents; both must succeed or the snapshot fails as a whole. Its impact scale stops at `MAJOROUTAGE`, so `critical` never originates there. |
-| `hipay_v1` | monitor-list API | The page renders client side, so its HTML holds no state; `base_url` is the full monitor-list URL it calls, whose path carries the public page key. Paginated, and the walk is bounded. |
-| `kener_v1` | the rendered page | Kener is open source but its API needs a key. The adapter parses the DOM and reads only the current-state node, never the daily history bars that reuse the same colour classes. Component keys are the displayed monitor names. |
+| `hipay_v1` | monitor-list API | The page renders client side, so its HTML holds no state; `base_url` is the full monitor-list URL it calls, whose path carries the public page key. Paginated and bounded: the announced `totalMonitors` is required and must be met exactly. Publishes no incidents or maintenance, so those series stay at zero. |
+| `kener_v1` | the rendered page | Kener is open source but its API needs a key. The adapter parses the DOM and reads only the current-state node, never the daily history bars that reuse the same colour classes. Component keys are the displayed monitor names. Publishes no incidents or maintenance, so those series stay at zero. |
 | `adyen_v1` | `/api/incident-messages/active` | Active incidents only: Adyen publishes no component inventory and no machine-readable maintenance list, so those stay at zero rather than being guessed. |
-| `paypal_v1` | `/api/v1/events` | Also covers Braintree. Only `production` events count. An open maintenance window is active or scheduled depending on its start date. |
+| `paypal_v1` | `/api/v1/events` | Also covers Braintree. `closed` and `sandbox` events are skipped; any other state or environment counts as an incident rather than being ignored. An open maintenance window is active or scheduled depending on its start date. |
 | `none` | none | The provider publishes nothing machine-readable. Declared status is **absent**, which is not the same as healthy. |
 
 Three providers currently have no declared source: Checkout.com hides its
@@ -303,7 +306,8 @@ into the existing scrape configuration and add
 [deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml) to its `rule_files`.
 The stack joins `monitoring_default`, the network Prometheus already runs on,
 so Prometheus resolves the exporter by service name and no host port is
-published.
+published. No registry serves the images: the NAS procedure, from build to
+rollback, is in [AGENTS.md](AGENTS.md#the-nas).
 
 ### Kubernetes
 
@@ -334,6 +338,11 @@ are billed per series, and a wildcard would ship every future series without
 anyone deciding to. Adding a metric means adding it to that list, a counter
 without its `_total` suffix, which the OpenMetrics check does not match.
 
+Datadog runs none of the recording rules. `psp_declared_operational` and
+`psp_probe_success` keep their last known good value, so a Datadog monitor must
+repeat the freshness check itself: the matching `*_last_success_timestamp_seconds`
+is non-zero and younger than `*_stale_after_seconds`.
+
 ### Grafana
 
 [deploy/grafana/](deploy/grafana/) holds a generated, tabbed dashboard. The
@@ -348,7 +357,13 @@ Versions follow [CHANGELOG.md](CHANGELOG.md). Pushing a `vX.Y.Z` tag reruns the
 Go checks and the rule tests, builds static binaries with `make dist` and publishes
 them with their checksums and the matching changelog section. A tag without a
 changelog section fails the release. `make dist` reproduces the same bytes
-locally.
+locally. The tagging procedure is in [AGENTS.md](AGENTS.md#repository-and-releases).
+
+```sh
+gh release download v1.0.0 --repo adeleglise/pssst \
+  --pattern 'pssst_1.0.0_linux_amd64' --pattern SHA256SUMS
+shasum -a 256 --check --ignore-missing SHA256SUMS
+```
 
 ## Adding a provider
 
@@ -373,6 +388,12 @@ Implement `internal/status.StatusProvider`: return one complete
 `cmd/pssst-check`, and document it in the adapter table above. Tests go against
 local fixtures, never a live provider.
 
+## Contributing
+
+Read [AGENTS.md](AGENTS.md) first, human or agent: the invariant, the rules
+that fail the build, the lessons already paid for, and how to operate the real
+infrastructure. `CLAUDE.md`, `GEMINI.md` and `CODEX.md` only point to it.
+
 ## Security
 
 Use HTTPS and protected headers for upstream credentials, restrict access to
@@ -390,3 +411,9 @@ decision. `kener_v1` is the only adapter reading markup and is the weakest
 contract here: it fails loudly by design, so an upstream redesign takes that
 source down and shows up as a stale declared signal rather than a wrong one.
 Blackbox owns DNS, TCP and TLS behaviour, including its own module policy.
+
+An open maintenance window mutes the unannounced and confirmed signals for the
+whole provider, even when it covers an unrelated component. The Blackbox
+request carries no scrape-timeout header, so every module timeout must stay
+below `polling.timeout`. No image is published to a registry, and no
+NetworkPolicy ships with the Kubernetes manifests.
