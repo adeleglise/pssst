@@ -16,6 +16,12 @@ configMapGenerator:
     files:
       - blackbox.yml=blackbox/blackbox.yml
 
+# No registry is published for this image. Point newName at the one the
+# cluster pulls from; the tag follows the release.
+images:
+  - name: pssst
+    newTag: 1.0.0
+
 resources:
   - kubernetes/deployment.yaml
   - kubernetes/blackbox.yaml

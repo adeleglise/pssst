@@ -6,26 +6,28 @@
 #                                   │                        │
 #                                   └──status pages          └──PSP endpoints
 #
-# The exporter publishes no port on the host by default: the NAS Prometheus
-# reaches it over this network. Set PSSST_PUBLISH to expose it for debugging.
+# Both services join monitoring_default, the network that Prometheus runs on,
+# and publish no port: Prometheus reaches the exporter by service name.
+#
+# The images carry their configuration (Dockerfile targets exporter-nas and
+# blackbox-nas), so the stack needs no bind mount and an inventory change
+# ships as a new image tag. Build them on the NAS from this checkout:
+#
+#   docker build --target exporter-nas --build-arg VERSION=1.0.0 -t localhost/pssst-nas:1.0.0 .
+#   docker build --target blackbox-nas -t localhost/pssst-blackbox-nas:1.0.0 .
 name: pssst
 
 services:
   pssst:
-    image: ${PSSST_IMAGE:-gitea.doudnas.home.al1.io/alain/pssst:latest}
+    image: ${PSSST_IMAGE:-localhost/pssst-nas:1.0.0}
     restart: unless-stopped
-    command: ["-config", "/etc/pssst/config.yml"]
-    configs:
-      - source: pssst_config
-        target: /etc/pssst/config.yml
-    ports:
-      - "${PSSST_PUBLISH:-127.0.0.1:9099}:9099"
     depends_on:
       - pssst-blackbox
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     stop_grace_period: 15s
+    networks: [monitoring]
     logging:
       driver: json-file
       options:
@@ -33,24 +35,19 @@ services:
         max-file: "3"
 
   pssst-blackbox:
-    image: quay.io/prometheus/blackbox-exporter:v0.28.0
+    image: ${PSSST_BLACKBOX_IMAGE:-localhost/pssst-blackbox-nas:1.0.0}
     restart: unless-stopped
-    command: ["--config.file=/etc/blackbox/blackbox.yml"]
-    configs:
-      - source: pssst_blackbox
-        target: /etc/blackbox/blackbox.yml
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
+    networks: [monitoring]
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
 
-# Configs are inlined so the stack needs no bind mount on the NAS filesystem.
-configs:
-  pssst_config:
-    file: ./pssst.psp.yml
-  pssst_blackbox:
-    file: ./blackbox/blackbox.yml
+networks:
+  monitoring:
+    external: true
+    name: monitoring_default

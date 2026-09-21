@@ -23,7 +23,9 @@ spec:
       annotations:
         # Datadog Autodiscovery. The metric list is explicit on purpose: custom
         # metrics are billed per series, and "*" would ship every future series
-        # this exporter ever adds without anyone deciding to.
+        # this exporter ever adds without anyone deciding to. Counters are listed
+        # without "_total", as the OpenMetrics check requires since Agent 7.32;
+        # they reach Datadog as pssst.psp_status_poll.count and so on.
         ad.datadoghq.com/pssst.checks: |
           {
             "openmetrics": {
@@ -56,9 +58,9 @@ spec:
                     "psp_probe_last_success_timestamp_seconds",
                     "psp_probe_last_collection_success_timestamp_seconds",
                     "psp_probe_stale_after_seconds",
-                    "psp_status_poll_total",
-                    "psp_probe_collection_total",
-                    "psp_probe_result_total"
+                    "psp_status_poll",
+                    "psp_probe_collection",
+                    "psp_probe_result"
                   ]
                 }
               ]
@@ -79,7 +81,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: pssst
-          image: pssst:0.5.0
+          # Tag and registry come from the kustomization's images entry.
+          image: pssst
           imagePullPolicy: IfNotPresent
           args: ["-config", "/etc/pssst/config.yml"]
           env:

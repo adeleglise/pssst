@@ -45,7 +45,8 @@ Three corollaries, each already encoded in tests:
   something real.
 - **Adding a metric means adding it to the Datadog list** in
   `deploy/kubernetes/deployment.yaml`. That list is explicit because custom
-  metrics are billed per series.
+  metrics are billed per series. A counter goes in without its `_total`
+  suffix: the OpenMetrics check silently skips the suffixed name.
 
 ## Before claiming anything works
 
