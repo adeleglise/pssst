@@ -262,13 +262,17 @@ psps:
       # Adyen publishes active incidents only: no components, no maintenance.
       type: adyen_v1
       base_url: "https://status.adyen.com"
+    # The live payment API sits behind a merchant-specific prefix, a customer
+    # identifier that does not belong here. checkoutshopper-live is the shared
+    # live host serving the web Drop-in every live payment page loads. The test
+    # environment is not what status.adyen.com describes.
     probes:
-      - id: api_https
+      - id: checkout_web_https
         module: http_api_reachable
-        target: "https://checkout-test.adyen.com/"
-      - id: api_tls
+        target: "https://checkoutshopper-live.adyen.com/"
+      - id: checkout_web_tls
         module: tls_connect
-        target: "checkout-test.adyen.com:443"
+        target: "checkoutshopper-live.adyen.com:443"
 
   - id: paypal
     display_name: PayPal

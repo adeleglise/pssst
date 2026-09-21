@@ -58,12 +58,17 @@ it before the fix. The other remarks were wording in the README, the
 changelog and the release workflow, now corrected; the release workflow also
 runs the rule tests.
 
+The Adyen probes targeted the test environment, which the production status
+page does not describe. They now target `checkoutshopper-live.adyen.com`, the
+live host shared by every merchant; the live payment API needs a
+merchant-specific prefix that does not belong in the inventory. Both modules
+succeed against it through a local Blackbox 0.28.0: HTTP 200 and TLS.
+
 ## Deferred
 
 - The Blackbox request carries no scrape-timeout header, so a module timeout
   at or above `polling.timeout` reads as a collection failure. The real
   inventory keeps its modules below it.
-- Adyen is probed on its test environment against a production status page.
 - Datadog reads last-known-good values without the freshness gating the
   rules apply; monitors there must copy it.
 - Kener and HiPay publish no incidents and Adyen no maintenance, yet those

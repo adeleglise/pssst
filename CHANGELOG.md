@@ -43,6 +43,10 @@ ran on the NAS.
   unannounced failure, or as a confirmed incident where the page flags
   components under maintenance. Without a declared incident it now raises only
   the observed-failure warning.
+- Adyen was probed on its test environment, which status.adyen.com does not
+  describe. The probes now target `checkoutshopper-live.adyen.com`, the shared
+  live host serving the web Drop-in, as `checkout_web_https` and
+  `checkout_web_tls`.
 - Datadog never collected the three counters. The OpenMetrics check expects
   counter names without `_total`, and the list now uses them.
 - `deploy/compose.nas.yml` described a stack that could not be scraped. It
