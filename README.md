@@ -245,17 +245,25 @@ last-known-good until the workers poll again.
 
 ## Prometheus rules and alerts
 
-[deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml) holds six recording
+[deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml) holds seven recording
 rules and seven alerts. `job` and `instance` are preserved in every aggregation,
 so two exporter replicas never hide one another.
 
+Fresh means the last success is younger than `*_stale_after_seconds`. A failed
+poll keeps the last observation until then, so it never restarts a correlation
+alert timer. Only `psp:probe_collection_unavailable` and `psp:status_source_stale`
+report the failed attempt itself, each through its own alert.
+
 `psp:observed_unavailable` is 1 when any fresh collected endpoint fails, 0 only
-when every endpoint has a fresh successful collection, and **absent** when the
-provider is partly unknown. `psp:declared_unavailable` exists only while a
-configured source is fresh. `psp:confirmed_incident` needs both;
-`psp:unannounced_failure` needs an observed failure plus a fresh source
-reporting nothing, deliberately absent for `type: none` and for stale sources,
-because you cannot call a failure unannounced when nobody was listening.
+when every endpoint has a fresh successful collection
+(`psp:probe_collection_fresh`), and **absent** when the provider is partly
+unknown. `psp:declared_unavailable` exists only while a configured source is
+fresh. `psp:confirmed_incident` needs both; `psp:unannounced_failure` needs an
+observed failure plus a fresh source reporting nothing, deliberately absent for
+`type: none` and for stale sources, because you cannot call a failure
+unannounced when nobody was listening. An open maintenance window is an
+announcement, not an incident: a failure inside it is neither confirmed nor
+unannounced, and only the observed-failure warning fires.
 
 Alerts use sustained `for` periods so one bad poll never pages: observed failure
 5m, confirmed incident 5m, unannounced failure 10m, collection failure 5m,

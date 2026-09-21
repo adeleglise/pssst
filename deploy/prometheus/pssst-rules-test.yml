@@ -125,8 +125,6 @@ tests:
 
       - series: 'psp_probe_ssl_earliest_cert_expiry_timestamp_seconds{job="pssst",instance="b:9099",psp="tls",endpoint="api"}'
         values: '259500x6'
-      - series: 'psp_maintenance_next_start_timestamp_seconds{job="pssst",instance="b:9099",psp="maintenance"}'
-        values: '86400x6'
       - series: 'psp:status_source_stale{job="pssst",instance="b:9099",psp="maintenance"}'
         values: '0x6'
     promql_expr_test:
@@ -172,11 +170,6 @@ tests:
         exp_samples:
           - labels: '{job="pssst",instance="b:9099",psp="tls"}'
             value: 259200
-      - expr: (psp_maintenance_next_start_timestamp_seconds > time() and psp_maintenance_next_start_timestamp_seconds - time() < 7 * 24 * 60 * 60) and on (job, instance, psp) (psp:status_source_stale == 0)
-        eval_time: 5m
-        exp_samples:
-          - labels: 'psp_maintenance_next_start_timestamp_seconds{job="pssst",instance="b:9099",psp="maintenance"}'
-            value: 86400
     alert_rule_test:
       - eval_time: 6m
         alertname: PSPObservedUnavailable
@@ -287,6 +280,268 @@ tests:
         exp_samples:
           - labels: 'psp:observed_unavailable{job="pssst",instance="a:9099",psp="transition"}'
             value: 0
+      # The failed collection at 1m keeps the 31s observation, still fresh.
       - expr: psp:observed_unavailable
         eval_time: 1m
+        exp_samples:
+          - labels: 'psp:observed_unavailable{job="pssst",instance="a:9099",psp="transition"}'
+            value: 0
+      # At 2m that observation is 89s old, past stale_after: unknown.
+      - expr: psp:observed_unavailable
+        eval_time: 2m
         exp_samples: []
+
+  # One failed status poll at 5m keeps the last snapshot, 59s old against a
+  # 225s limit. The unannounced timer must not restart.
+  - name: one failed status poll keeps the unannounced timer
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="d:9099",psp="declared_flap",endpoint="api"}'
+        values: '1x14'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="d:9099",psp="declared_flap",endpoint="api"}'
+        values: '1+60x14'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="d:9099",psp="declared_flap",endpoint="api"}'
+        values: '315x14'
+      - series: 'psp_probe_success{job="pssst",instance="d:9099",psp="declared_flap",endpoint="api"}'
+        values: '0x14'
+      - series: 'psp_status_source_configured{job="pssst",instance="d:9099",psp="declared_flap"}'
+        values: '1x14'
+      - series: 'psp_status_source_up{job="pssst",instance="d:9099",psp="declared_flap"}'
+        values: '1 1 1 1 1 0 1 1 1 1 1 1 1 1 1'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="d:9099",psp="declared_flap"}'
+        values: '1 61 121 181 241 241 361 421 481 541 601 661 721 781 841'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="d:9099",psp="declared_flap"}'
+        values: '225x14'
+      - series: 'psp_declared_operational{job="pssst",instance="d:9099",psp="declared_flap",component="overall"}'
+        values: '1x14'
+      - series: 'psp_active_incidents{job="pssst",instance="d:9099",psp="declared_flap",severity="major"}'
+        values: '0x14'
+    promql_expr_test:
+      - expr: psp:declared_unavailable
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:declared_unavailable{job="pssst",instance="d:9099",psp="declared_flap"}'
+            value: 0
+      - expr: psp:unannounced_failure
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:unannounced_failure{job="pssst",instance="d:9099",psp="declared_flap"}'
+            value: 1
+      # Source health still reports the failed poll through its own alert.
+      - expr: psp:status_source_stale
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:status_source_stale{job="pssst",instance="d:9099",psp="declared_flap"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PSPUnannouncedFailure
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: d:9099
+              psp: declared_flap
+              severity: critical
+            exp_annotations:
+              summary: PSP endpoint failure without a declared incident
+              description: declared_flap is failing while its fresh official status source reports no incident.
+
+  # One failed collection at 3m keeps the last collected failure, 59s old
+  # against a 315s limit. From 8m collection fails for good: the 421s
+  # observation stays usable until it ages past 315s, between 12m and 13m.
+  - name: one failed collection keeps the observed timer
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="d:9099",psp="collection_flap",endpoint="api"}'
+        values: '1 1 1 0 1 1 1 1 0 0 0 0 0 0 0'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="d:9099",psp="collection_flap",endpoint="api"}'
+        values: '1 61 121 121 241 301 361 421 421 421 421 421 421 421 421'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="d:9099",psp="collection_flap",endpoint="api"}'
+        values: '315x14'
+      - series: 'psp_probe_success{job="pssst",instance="d:9099",psp="collection_flap",endpoint="api"}'
+        values: '0x14'
+    promql_expr_test:
+      - expr: psp:observed_unavailable
+        eval_time: 3m
+        exp_samples:
+          - labels: 'psp:observed_unavailable{job="pssst",instance="d:9099",psp="collection_flap"}'
+            value: 1
+      # Collection health still reports the failed attempt through its own alert.
+      - expr: psp:probe_collection_unavailable
+        eval_time: 3m
+        exp_samples:
+          - labels: 'psp:probe_collection_unavailable{job="pssst",instance="d:9099",psp="collection_flap"}'
+            value: 1
+      - expr: psp:observed_unavailable
+        eval_time: 12m
+        exp_samples:
+          - labels: 'psp:observed_unavailable{job="pssst",instance="d:9099",psp="collection_flap"}'
+            value: 1
+      - expr: psp:observed_unavailable
+        eval_time: 13m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: PSPObservedUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: d:9099
+              psp: collection_flap
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for collection_flap on d:9099 has been unavailable for at least five minutes.
+
+  # PayPal never clears overall for an open window, and Statuspage may not flag
+  # components. An open window is an announcement, not an incident: a failure
+  # inside it is neither confirmed nor unannounced, and only the warning fires.
+  - name: announced maintenance is neither confirmed nor unannounced
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="d:9099",psp="maintenance_window",endpoint="api"}'
+        values: '1x14'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="d:9099",psp="maintenance_window",endpoint="api"}'
+        values: '1+60x14'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="d:9099",psp="maintenance_window",endpoint="api"}'
+        values: '315x14'
+      - series: 'psp_probe_success{job="pssst",instance="d:9099",psp="maintenance_window",endpoint="api"}'
+        values: '0x14'
+      - series: 'psp_status_source_configured{job="pssst",instance="d:9099",psp="maintenance_window"}'
+        values: '1x14'
+      - series: 'psp_status_source_up{job="pssst",instance="d:9099",psp="maintenance_window"}'
+        values: '1x14'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="d:9099",psp="maintenance_window"}'
+        values: '1+60x14'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="d:9099",psp="maintenance_window"}'
+        values: '225x14'
+      - series: 'psp_declared_operational{job="pssst",instance="d:9099",psp="maintenance_window",component="overall"}'
+        values: '1x14'
+      - series: 'psp_active_incidents{job="pssst",instance="d:9099",psp="maintenance_window",severity="major"}'
+        values: '0x14'
+      - series: 'psp_maintenance_active{job="pssst",instance="d:9099",psp="maintenance_window"}'
+        values: '1x14'
+    promql_expr_test:
+      - expr: psp:declared_unavailable
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:declared_unavailable{job="pssst",instance="d:9099",psp="maintenance_window"}'
+            value: 0
+      - expr: psp:confirmed_incident
+        eval_time: 5m
+        exp_samples: []
+      - expr: psp:unannounced_failure
+        eval_time: 5m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PSPObservedUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: d:9099
+              psp: maintenance_window
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for maintenance_window on d:9099 has been unavailable for at least five minutes.
+      - eval_time: 12m
+        alertname: PSPConfirmedIncident
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: PSPUnannouncedFailure
+        exp_alerts: []
+
+  # Polls fail from 2m. The 61s snapshot stays usable through 4m, then ages
+  # past 225s: declared becomes unknown and nothing may be called unannounced.
+  - name: a stale status source silences the unannounced signal
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="d:9099",psp="source_aged",endpoint="api"}'
+        values: '1x14'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="d:9099",psp="source_aged",endpoint="api"}'
+        values: '1+60x14'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="d:9099",psp="source_aged",endpoint="api"}'
+        values: '315x14'
+      - series: 'psp_probe_success{job="pssst",instance="d:9099",psp="source_aged",endpoint="api"}'
+        values: '0x14'
+      - series: 'psp_status_source_configured{job="pssst",instance="d:9099",psp="source_aged"}'
+        values: '1x14'
+      - series: 'psp_status_source_up{job="pssst",instance="d:9099",psp="source_aged"}'
+        values: '1 1 0 0 0 0 0 0 0 0 0 0 0 0 0'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="d:9099",psp="source_aged"}'
+        values: '1 61 61 61 61 61 61 61 61 61 61 61 61 61 61'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="d:9099",psp="source_aged"}'
+        values: '225x14'
+      - series: 'psp_declared_operational{job="pssst",instance="d:9099",psp="source_aged",component="overall"}'
+        values: '1x14'
+      - series: 'psp_active_incidents{job="pssst",instance="d:9099",psp="source_aged",severity="major"}'
+        values: '0x14'
+    promql_expr_test:
+      - expr: psp:declared_unavailable
+        eval_time: 4m
+        exp_samples:
+          - labels: 'psp:declared_unavailable{job="pssst",instance="d:9099",psp="source_aged"}'
+            value: 0
+      - expr: psp:declared_unavailable
+        eval_time: 5m
+        exp_samples: []
+      - expr: psp:unannounced_failure
+        eval_time: 5m
+        exp_samples: []
+      - expr: psp:status_source_stale
+        eval_time: 5m
+        exp_samples:
+          - labels: 'psp:status_source_stale{job="pssst",instance="d:9099",psp="source_aged"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PSPUnannouncedFailure
+        exp_alerts: []
+
+  # One failed collection and one failed status poll at 5m, both leaving a
+  # fresh last success. Neither 15m timer may restart.
+  - name: one failed poll keeps the certificate and maintenance timers
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="e:9099",psp="tls",endpoint="api"}'
+        values: '1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="e:9099",psp="tls",endpoint="api"}'
+        values: '1 61 121 181 241 241 361 421 481 541 601 661 721 781 841 901 961 1021'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="e:9099",psp="tls",endpoint="api"}'
+        values: '120x17'
+      - series: 'psp_probe_ssl_earliest_cert_expiry_timestamp_seconds{job="pssst",instance="e:9099",psp="tls",endpoint="api"}'
+        values: '1000000x17'
+      - series: 'psp_status_source_configured{job="pssst",instance="e:9099",psp="maintenance"}'
+        values: '1x17'
+      - series: 'psp_status_source_up{job="pssst",instance="e:9099",psp="maintenance"}'
+        values: '1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="e:9099",psp="maintenance"}'
+        values: '1 61 121 181 241 241 361 421 481 541 601 661 721 781 841 901 961 1021'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="e:9099",psp="maintenance"}'
+        values: '120x17'
+      - series: 'psp_maintenance_next_start_timestamp_seconds{job="pssst",instance="e:9099",psp="maintenance"}'
+        values: '3600+60x17'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: PSPCertificateExpiringSoon
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: e:9099
+              psp: tls
+              severity: warning
+            exp_annotations:
+              summary: PSP endpoint certificate expires soon
+              description: At least one observed certificate for tls expires within 14 days.
+      - eval_time: 16m
+        alertname: PSPMaintenanceApproaching
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: e:9099
+              psp: maintenance
+              severity: info
+            exp_annotations:
+              summary: PSP maintenance approaches
+              description: maintenance has fresh declared maintenance scheduled within seven days.

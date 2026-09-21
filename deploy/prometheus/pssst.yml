@@ -12,15 +12,25 @@ groups:
             ) > bool 0
           )
 
+      # 1 when every endpoint has a fresh successful collection, else 0. Age
+      # only: a failed attempt keeps the last observation until stale_after.
+      # Evaluated before psp:observed_unavailable, which reads it.
+      - record: psp:probe_collection_fresh
+        expr: |
+          min by (job, instance, psp) (
+            (psp_probe_last_collection_success_timestamp_seconds > bool 0)
+            * (time() - psp_probe_last_collection_success_timestamp_seconds <= bool psp_probe_stale_after_seconds)
+          )
+
       # The job and instance labels deliberately remain in every aggregation.
       # A second exporter replica must not make a failed replica look healthy.
-      # Unknown collection is absent here; it has its own collection alert.
+      # Gated on freshness, not the last attempt, so one failed collection
+      # never restarts an alert timer. Unknown is absent here.
       - record: psp:observed_unavailable
         expr: |
           (
             max by (job, instance, psp) (
               (1 - psp_probe_success)
-              and on (job, instance, psp, endpoint) (psp_probe_collection_up == 1)
               and on (job, instance, psp, endpoint) (psp_probe_last_collection_success_timestamp_seconds > 0)
               and on (job, instance, psp, endpoint) (time() - psp_probe_last_collection_success_timestamp_seconds <= psp_probe_stale_after_seconds)
             ) == 1
@@ -29,15 +39,15 @@ groups:
           (
             (max by (job, instance, psp) (
               (1 - psp_probe_success)
-              and on (job, instance, psp, endpoint) (psp_probe_collection_up == 1)
               and on (job, instance, psp, endpoint) (psp_probe_last_collection_success_timestamp_seconds > 0)
               and on (job, instance, psp, endpoint) (time() - psp_probe_last_collection_success_timestamp_seconds <= psp_probe_stale_after_seconds)
             ) == 0)
-            and on (job, instance, psp) (psp:probe_collection_unavailable == 0)
+            and on (job, instance, psp) (psp:probe_collection_fresh == 1)
           )
 
       # A declared signal is meaningful only while its configured source has a
-      # complete, fresh snapshot. This rule is absent for status.type: none.
+      # fresh snapshot; a failed poll keeps the last one until stale_after.
+      # This rule is absent for status.type: none.
       - record: psp:declared_unavailable
         expr: |
           (
@@ -48,7 +58,6 @@ groups:
             and on (job, instance, psp)
             (
               (psp_status_source_configured == 1)
-              and (psp_status_source_up == 1)
               and (psp_status_source_last_success_timestamp_seconds > 0)
               and (time() - psp_status_source_last_success_timestamp_seconds <= psp_status_source_stale_after_seconds)
             )
@@ -73,10 +82,13 @@ groups:
 
       # psp:declared_unavailable has a zero only for a fresh, configured source
       # that reports no problem. It is absent for stale and type:none sources.
+      # An open maintenance window is an announcement, so a failure inside it
+      # is not unannounced.
       - record: psp:unannounced_failure
         expr: |
           (psp:observed_unavailable == 1)
           and on (job, instance, psp) (psp:declared_unavailable == 0)
+          unless on (job, instance, psp) (psp_maintenance_active > 0)
 
   - name: pssst.alerts
     interval: 30s
@@ -126,11 +138,11 @@ groups:
           summary: Blackbox probe collection is unavailable
           description: 'PSSST cannot obtain a valid Blackbox response for {{ $labels.psp }}.'
 
+      # Freshness only: one failed collection must not restart the 15m timer.
       - alert: PSPCertificateExpiringSoon
         expr: |
           min by (job, instance, psp) (
             (psp_probe_ssl_earliest_cert_expiry_timestamp_seconds - time())
-            and on (job, instance, psp, endpoint) (psp_probe_collection_up == 1)
             and on (job, instance, psp, endpoint) (psp_probe_last_collection_success_timestamp_seconds > 0)
             and on (job, instance, psp, endpoint) (time() - psp_probe_last_collection_success_timestamp_seconds <= psp_probe_stale_after_seconds)
           ) < 14 * 24 * 60 * 60
@@ -141,13 +153,17 @@ groups:
           summary: PSP endpoint certificate expires soon
           description: 'At least one observed certificate for {{ $labels.psp }} expires within 14 days.'
 
+      # Freshness only, not psp:status_source_stale: one failed poll must not
+      # restart the 15m timer.
       - alert: PSPMaintenanceApproaching
         expr: |
           (
             psp_maintenance_next_start_timestamp_seconds > time()
             and psp_maintenance_next_start_timestamp_seconds - time() < 7 * 24 * 60 * 60
           )
-          and on (job, instance, psp) (psp:status_source_stale == 0)
+          and on (job, instance, psp) (psp_status_source_configured == 1)
+          and on (job, instance, psp) (psp_status_source_last_success_timestamp_seconds > 0)
+          and on (job, instance, psp) (time() - psp_status_source_last_success_timestamp_seconds <= psp_status_source_stale_after_seconds)
         for: 15m
         labels:
           severity: info
