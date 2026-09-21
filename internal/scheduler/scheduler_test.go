@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/cache"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/config"
+	"github.com/adeleglise/pssst/internal/cache"
+	"github.com/adeleglise/pssst/internal/config"
 )
 
 func TestSlowStatusDoesNotBlockProbesOrShutdown(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 	commonmodel "github.com/prometheus/common/model"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/httpclient"
+	"github.com/adeleglise/pssst/internal/httpclient"
 )
 
 const (

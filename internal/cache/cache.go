@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/blackbox"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/config"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status"
+	"github.com/adeleglise/pssst/internal/blackbox"
+	"github.com/adeleglise/pssst/internal/config"
+	"github.com/adeleglise/pssst/internal/status"
 )
 
 type StatusState struct {

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/httpclient"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status"
+	"github.com/adeleglise/pssst/internal/httpclient"
+	"github.com/adeleglise/pssst/internal/status"
 )
 
 const maxEntities = 1024

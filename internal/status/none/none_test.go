@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/none"
+	"github.com/adeleglise/pssst/internal/status/none"
 )
 
 func TestProviderReturnsAnEmptyUnconfiguredSnapshot(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/statuspage"
+	"github.com/adeleglise/pssst/internal/status"
+	"github.com/adeleglise/pssst/internal/status/statuspage"
 )
 
 func TestFetchNormalizesCompleteSummary(t *testing.T) {

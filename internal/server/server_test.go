@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/cache"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/collector"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/config"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/scheduler"
+	"github.com/adeleglise/pssst/internal/cache"
+	"github.com/adeleglise/pssst/internal/collector"
+	"github.com/adeleglise/pssst/internal/config"
+	"github.com/adeleglise/pssst/internal/scheduler"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

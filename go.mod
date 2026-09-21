@@ -1,4 +1,4 @@
-module gitea.doudnas.home.al1.io/alain/pssst
+module github.com/adeleglise/pssst
 
 go 1.27.1
 

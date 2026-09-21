@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/cache"
+	"github.com/adeleglise/pssst/internal/cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

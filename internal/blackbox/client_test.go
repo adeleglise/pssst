@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/blackbox"
+	"github.com/adeleglise/pssst/internal/blackbox"
 )
 
 func TestProbeMapsAllowedScalarMetrics(t *testing.T) {

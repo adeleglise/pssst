@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/config"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/adyen"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/hipay"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/instatus"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/kener"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/paypal"
-	"gitea.doudnas.home.al1.io/alain/pssst/internal/status/statuspage"
+	"github.com/adeleglise/pssst/internal/config"
+	"github.com/adeleglise/pssst/internal/status"
+	"github.com/adeleglise/pssst/internal/status/adyen"
+	"github.com/adeleglise/pssst/internal/status/hipay"
+	"github.com/adeleglise/pssst/internal/status/instatus"
+	"github.com/adeleglise/pssst/internal/status/kener"
+	"github.com/adeleglise/pssst/internal/status/paypal"
+	"github.com/adeleglise/pssst/internal/status/statuspage"
 )
 
 const exitUsage = 2
