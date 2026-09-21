@@ -105,6 +105,61 @@ func TestNonProductionEventsAreIgnored(t *testing.T) {
 	}
 }
 
+func TestUnrecognizedStateCountsAsIncident(t *testing.T) {
+	body := `{"result":[
+		{"id":1,"referenceId":"PP-LIVE-1","state":"investigating","type":"Incident","environment":"production","severity":"Partial Outage"}]}`
+
+	snap, err := New(fakePage(t, body).URL, nil, time.Second).Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if snap.Components["overall"] {
+		t.Error("an unrecognized state must not be reported operational")
+	}
+	if len(snap.Incidents) == 0 {
+		t.Error("an unrecognized state must still be counted")
+	}
+}
+
+func TestEmptyStateCountsAsIncident(t *testing.T) {
+	body := `{"result":[
+		{"id":1,"referenceId":"PP-LIVE-1","state":"","type":"Incident","environment":"production"}]}`
+
+	snap, err := New(fakePage(t, body).URL, nil, time.Second).Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if snap.Components["overall"] {
+		t.Error("an empty state must not be reported operational")
+	}
+}
+
+func TestUnrecognizedEnvironmentCountsAsIncident(t *testing.T) {
+	body := `{"result":[
+		{"id":1,"referenceId":"PP-LIVE-1","state":"open","type":"Incident","environment":"staging","severity":"Partial Outage"}]}`
+
+	snap, err := New(fakePage(t, body).URL, nil, time.Second).Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if snap.Components["overall"] {
+		t.Error("an unrecognized environment must not be reported operational")
+	}
+}
+
+func TestEmptyEnvironmentCountsAsIncident(t *testing.T) {
+	body := `{"result":[
+		{"id":1,"referenceId":"PP-LIVE-1","state":"open","type":"Incident","environment":""}]}`
+
+	snap, err := New(fakePage(t, body).URL, nil, time.Second).Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if snap.Components["overall"] {
+		t.Error("an empty environment must not be reported operational")
+	}
+}
+
 func TestFreeTextNeverReachesLogs(t *testing.T) {
 	body := `{"result":[
 		{"id":1,"referenceId":"card payments <script>","state":"open","type":"Incident","environment":"production"}]}`

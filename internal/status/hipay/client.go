@@ -57,19 +57,37 @@ func (c *Client) Fetch(ctx context.Context) (status.Snapshot, error) {
 	}
 
 	states := map[string]string{}
+	total := 0
 	for page := 1; page <= maxPages; page++ {
 		body, err := c.http.Get(ctx, fmt.Sprintf("%s?page=%d", c.endpoint, page))
 		if err != nil {
 			return status.Snapshot{}, err
 		}
-		total, err := collect(body, states)
+
+		before := len(states)
+		pageTotal, err := collect(body, states)
 		if err != nil {
 			return status.Snapshot{}, err
 		}
-		if len(states) >= total {
-			return build(states, c.mapping)
+
+		// The total must hold across every page; a page silently reporting a
+		// different total is a sign the list cannot be trusted.
+		if total == 0 {
+			total = pageTotal
+		} else if pageTotal != total {
+			return status.Snapshot{}, errors.New("status summary total changed between pages")
 		}
-		if len(states) > maxMonitors {
+
+		switch {
+		case len(states) > total:
+			return status.Snapshot{}, errors.New("status summary exceeded its declared total")
+		case len(states) == total:
+			return build(states, c.mapping)
+		case len(states) == before:
+			// A page that adds nothing can never reach the total: fail now
+			// instead of retrying up to maxPages for no reason.
+			return status.Snapshot{}, errors.New("status summary page added no monitor")
+		case len(states) > maxMonitors:
 			return status.Snapshot{}, errors.New("status summary has too many entities")
 		}
 	}
@@ -80,7 +98,8 @@ type rawResponse struct {
 	Status string        `json:"status"`
 	Data   *[]rawMonitor `json:"data"`
 	PSP    struct {
-		TotalMonitors int `json:"totalMonitors"`
+		// A pointer distinguishes an absent total from an honest zero.
+		TotalMonitors *int `json:"totalMonitors"`
 	} `json:"psp"`
 }
 
@@ -95,6 +114,11 @@ func collect(body []byte, states map[string]string) (int, error) {
 	if err := json.Unmarshal(body, &raw); err != nil || raw.Data == nil || raw.Status != statusOK {
 		return 0, errors.New("invalid status summary")
 	}
+	// A missing or zero total cannot bound the list: the walk would never
+	// know when it is complete.
+	if raw.PSP.TotalMonitors == nil || *raw.PSP.TotalMonitors <= 0 {
+		return 0, errors.New("status summary is missing its monitor total")
+	}
 	for _, monitor := range *raw.Data {
 		if monitor.MonitorID == nil || monitor.StatusClass == "" {
 			return 0, errors.New("invalid status summary")
@@ -105,7 +129,7 @@ func collect(body []byte, states map[string]string) (int, error) {
 		}
 		states[id] = monitor.StatusClass
 	}
-	return raw.PSP.TotalMonitors, nil
+	return *raw.PSP.TotalMonitors, nil
 }
 
 func build(states map[string]string, mappings map[string]string) (status.Snapshot, error) {

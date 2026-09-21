@@ -113,6 +113,63 @@ func TestPaginationIsBounded(t *testing.T) {
 	}
 }
 
+func TestMissingTotalFails(t *testing.T) {
+	server := serve(t, map[string]string{"1": `{"status":"ok","data":[{"monitorId":1001,"statusClass":"success"}]}`})
+
+	if _, err := New(server.URL, nil, nil, time.Second).Fetch(context.Background()); err == nil {
+		t.Error("a missing monitor total must fail the snapshot")
+	}
+}
+
+func TestZeroTotalFails(t *testing.T) {
+	server := serve(t, map[string]string{"1": page(`{"monitorId":1001,"statusClass":"success"}`, 0, 50)})
+
+	if _, err := New(server.URL, nil, nil, time.Second).Fetch(context.Background()); err == nil {
+		t.Error("a zero monitor total must fail the snapshot")
+	}
+}
+
+func TestEmptyDataWithoutTotalFails(t *testing.T) {
+	server := serve(t, map[string]string{"1": `{"status":"ok","data":[]}`})
+
+	if _, err := New(server.URL, nil, nil, time.Second).Fetch(context.Background()); err == nil {
+		t.Error("an empty monitor list without a total must fail the snapshot")
+	}
+}
+
+func TestPageAddingNothingFails(t *testing.T) {
+	server := serve(t, map[string]string{
+		"1": page(`{"monitorId":1001,"statusClass":"success"}`, 2, 1),
+		"2": page(``, 2, 1),
+	})
+
+	if _, err := New(server.URL, nil, nil, time.Second).Fetch(context.Background()); err == nil {
+		t.Error("a page adding no monitor before the total must fail the snapshot")
+	}
+}
+
+func TestCountExceedingTotalFails(t *testing.T) {
+	monitors := `{"monitorId":1001,"statusClass":"success"},{"monitorId":1002,"statusClass":"success"}`
+	server := serve(t, map[string]string{"1": page(monitors, 1, 50)})
+
+	if _, err := New(server.URL, nil, nil, time.Second).Fetch(context.Background()); err == nil {
+		t.Error("a monitor count exceeding the declared total must fail the snapshot")
+	}
+}
+
+func TestChangingTotalFails(t *testing.T) {
+	// The total drops to match what is already collected: a naive reader
+	// would treat this as complete after one real monitor out of five.
+	server := serve(t, map[string]string{
+		"1": page(`{"monitorId":1001,"statusClass":"success"}`, 5, 1),
+		"2": page(``, 1, 1),
+	})
+
+	if _, err := New(server.URL, nil, nil, time.Second).Fetch(context.Background()); err == nil {
+		t.Error("a total that changes between pages must fail the snapshot")
+	}
+}
+
 func TestMissingMappedMonitorFails(t *testing.T) {
 	server := serve(t, map[string]string{"1": page(healthy, 2, 50)})
 

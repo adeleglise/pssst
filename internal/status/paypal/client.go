@@ -22,10 +22,12 @@ const maxEvents = 512
 
 const (
 	stateOpen       = "open"
+	stateClosed     = "closed"
 	typeIncident    = "incident"
 	typeMaintenance = "maintenance"
 	// Only production events describe the service a merchant actually uses.
 	environmentProduction = "production"
+	environmentSandbox    = "sandbox"
 )
 
 var entityID = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
@@ -86,12 +88,25 @@ func decode(body []byte, now time.Time) (status.Snapshot, error) {
 	}
 	seen := make(map[string]struct{}, len(events))
 	for _, event := range events {
-		if strings.ToLower(event.State) != stateOpen {
+		state := strings.ToLower(event.State)
+		environment := strings.ToLower(event.Environment)
+
+		// A closed event is over, and a sandbox event never describes the
+		// production service a merchant uses. Either alone drops the event.
+		if state == stateClosed || environment == environmentSandbox {
 			continue
 		}
-		if strings.ToLower(event.Environment) != environmentProduction {
+
+		// Anything other than an open production event carries a state or an
+		// environment the allow-list does not recognize. Count it rather than
+		// guess whether it is safe to ignore.
+		if state != stateOpen || environment != environmentProduction {
+			if err := addIncident(&snapshot, event, seen); err != nil {
+				return status.Snapshot{}, err
+			}
 			continue
 		}
+
 		switch strings.ToLower(event.Type) {
 		case typeIncident:
 			if err := addIncident(&snapshot, event, seen); err != nil {
