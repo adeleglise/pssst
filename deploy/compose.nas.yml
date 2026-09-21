@@ -11,10 +11,11 @@
 #
 # The images carry their configuration (Dockerfile targets exporter-nas and
 # blackbox-nas), so the stack needs no bind mount and an inventory change
-# ships as a new image tag. Build them on the NAS from this checkout:
+# ships as a new image tag. No registry serves them: they are built on a
+# workstation and loaded into the NAS engine, see "The NAS" in AGENTS.md.
 #
-#   docker build --target exporter-nas --build-arg VERSION=1.0.0 -t localhost/pssst-nas:1.0.0 .
-#   docker build --target blackbox-nas -t localhost/pssst-blackbox-nas:1.0.0 .
+#   podman build --platform linux/amd64 --target exporter-nas --build-arg VERSION=1.0.0 -t localhost/pssst-nas:1.0.0 .
+#   podman build --platform linux/amd64 --target blackbox-nas -t localhost/pssst-blackbox-nas:1.0.0 .
 name: pssst
 
 services:

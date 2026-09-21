@@ -1,7 +1,7 @@
 # Validation, v1.0.0, 2026-09-21
 
-Evidence gathered before tagging v1.0.0. The MVP validation of 2026-09-18 is
-in the git history of this file.
+Evidence for v1.0.0: gathered before tagging, then after deployment. The MVP
+validation of 2026-09-18 is in the git history of this file.
 
 ## Production before the release
 
@@ -74,8 +74,9 @@ succeed against it through a local Blackbox 0.28.0: HTTP 200 and TLS.
 - Kener and HiPay publish no incidents and Adyen no maintenance, yet those
   series export 0.
 - No NetworkPolicy ships with the Kubernetes manifests.
-- An open window mutes the unannounced and confirmed signals for the whole
-  provider, even when it covers an unrelated component.
+- An open window mutes the unannounced signal for the whole provider, and the
+  confirmed one unless an incident is declared, even when the window covers an
+  unrelated component.
 
 ## Deployment
 

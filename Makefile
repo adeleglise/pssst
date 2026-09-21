@@ -11,8 +11,6 @@ VERSION ?= $(or $(shell git describe --tags --always --dirty 2>/dev/null | sed '
 
 .PHONY: fmt fmt-check lint vuln test test-race build dist image up down rules-test smoke
 
-# rg gets an explicit path: without one it searches stdin whenever stdin is
-# not a terminal, which hangs under CI and in scripts.
 fmt:
 	@command -v rg >/dev/null
 	gofmt -w $$(rg --files -g '*.go' .)

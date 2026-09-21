@@ -3,9 +3,6 @@
 **P**ayment **S**tatus **S**ignals & **S**urveillance **T**ool. A Prometheus
 exporter that answers one question about a payment provider: is it working?
 
-Releases are listed in [CHANGELOG.md](CHANGELOG.md); the evidence behind the
-last one is in [docs/validation.md](docs/validation.md).
-
 It answers it twice, on purpose.
 
 - **Declared status** is what the provider says about itself, read from its own
@@ -27,6 +24,9 @@ ones where they disagree:
 
 A tool that collapsed these into one number would throw away the only cases
 worth paging someone about.
+
+Releases are listed in [CHANGELOG.md](CHANGELOG.md); the evidence behind the
+last one is in [docs/validation.md](docs/validation.md).
 
 ## Architecture
 
@@ -340,8 +340,13 @@ without its `_total` suffix, which the OpenMetrics check does not match.
 
 Datadog runs none of the recording rules. `psp_declared_operational` and
 `psp_probe_success` keep their last known good value, so a Datadog monitor must
-repeat the freshness check itself: the matching `*_last_success_timestamp_seconds`
-is non-zero and younger than `*_stale_after_seconds`.
+repeat the freshness check itself, as the rules do: a declared value counts
+while `psp_status_source_last_success_timestamp_seconds` is non-zero and younger
+than `psp_status_source_stale_after_seconds`, an observed value while
+`psp_probe_last_collection_success_timestamp_seconds` is non-zero and younger
+than `psp_probe_stale_after_seconds`. Not `psp_probe_last_success_timestamp_seconds`:
+it stops advancing while an endpoint fails, so a monitor on it would hide the
+failure as staleness.
 
 ### Grafana
 
@@ -356,8 +361,8 @@ that directory's README.
 Versions follow [CHANGELOG.md](CHANGELOG.md). Pushing a `vX.Y.Z` tag reruns the
 Go checks and the rule tests, builds static binaries with `make dist` and publishes
 them with their checksums and the matching changelog section. A tag without a
-changelog section fails the release. `make dist` reproduces the same bytes
-locally. The tagging procedure is in [AGENTS.md](AGENTS.md#repository-and-releases).
+changelog section fails the release. `make dist` on a clean checkout of the
+tag, with the Go version in `go.mod`, reproduces the same bytes. The tagging procedure is in [AGENTS.md](AGENTS.md#repository-and-releases).
 
 ```sh
 gh release download v1.0.0 --repo adeleglise/pssst \
@@ -412,8 +417,9 @@ contract here: it fails loudly by design, so an upstream redesign takes that
 source down and shows up as a stale declared signal rather than a wrong one.
 Blackbox owns DNS, TCP and TLS behaviour, including its own module policy.
 
-An open maintenance window mutes the unannounced and confirmed signals for the
-whole provider, even when it covers an unrelated component. The Blackbox
+An open maintenance window mutes the unannounced signal for the whole provider,
+and the confirmed one unless an incident is declared, even when the window
+covers an unrelated component. The Blackbox
 request carries no scrape-timeout header, so every module timeout must stay
 below `polling.timeout`. No image is published to a registry, and no
 NetworkPolicy ships with the Kubernetes manifests.

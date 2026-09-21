@@ -98,9 +98,10 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 path matches it. `gitea` is a mirror: push `main` and every tag there too.
 
 Changes reach `main` through a pull request whose CI is green, `verify` and
-`smoke` both, after a review by someone who did not write the change. Go comes
-from `go.mod`; staticcheck and govulncheck are pinned there as tools, so
-bumping one is a `go.mod` change. Dependabot proposes updates weekly.
+`smoke` both, after a review by someone who did not write the change. CI takes
+Go from `go.mod`; the Dockerfile pins its own `golang` builder image, so the
+two move together. staticcheck and govulncheck are pinned in `go.mod` as tools.
+Dependabot proposes updates weekly.
 
 A release, in order:
 
@@ -108,13 +109,14 @@ A release, in order:
    evidence in `docs/validation.md`. Merge.
 2. Tag `main`: `git tag -a vX.Y.Z -m vX.Y.Z`, then push the tag to `origin`
    and `gitea`.
-3. The release workflow reruns the checks and the rule tests, builds the
-   binaries with `make dist` and publishes them with `SHA256SUMS`. It fails
-   when the changelog has no section for the tag.
+3. The release workflow reruns `fmt-check lint vuln test test-race` and the
+   rule tests, builds the binaries with `make dist` and publishes them with
+   `SHA256SUMS`. It fails when the changelog has no section for the tag.
 
 The exported version drops the `v`: tag `v1.0.0` reports `1.0.0` in
 `psp_exporter_build_info`, like the untagged 0.x builds did. `make dist` is
-reproducible: a local run of a tag gives the published checksums.
+reproducible: on a clean checkout of a tag, with the Go version in `go.mod`,
+it gives the published checksums.
 
 ## Adding an adapter
 
@@ -192,7 +194,7 @@ a plain `int`, so an absent key read as 0, the pagination stopped after one
 page and a partial list exported as healthy. A count the adapter relies on is
 a pointer, and its absence fails the snapshot.
 
-**Allow-list remote enums, never deny-list them.** The PayPal adapter kept
+**An unrecognized remote value counts; skip only known ones.** The PayPal adapter kept
 only `open` production events and skipped the rest, so an unknown state or an
 empty environment silently left the provider operational. Skip only the
 values known to be irrelevant (`closed`, `sandbox`); anything else counts.
@@ -215,9 +217,10 @@ APIs often sit behind a merchant-specific prefix, which is a customer
 identifier and stays out of the inventory: probe a shared live host instead,
 here `checkoutshopper-live.adyen.com`.
 
-**ripgrep searches stdin when stdin is not a terminal.** `rg --files` without
-a path hangs in scripts and CI; the Makefile always passes `.`. The
-ubuntu-24.04 runner does not ship ripgrep, so CI installs it.
+**`rg PATTERN` without a path searches stdin.** When stdin is not a terminal,
+search mode reads it and waits: a scripted `rg -l` hung this way. Always pass
+a path. `rg --files` does not read stdin. The `ubuntu-latest` runner does not
+ship ripgrep, so the workflows install it.
 
 **The committed stack drifted from the deployed one.** `compose.nas.yml`
 described config mounts, a published port and no shared network, while the
@@ -266,9 +269,9 @@ Deploying version X.Y.Z, from a clean checkout of its tag:
    of the production version. Then back up the live file as
    `pssst.rules.yml.bak.<epoch>`, replace it and `POST /-/reload`.
 6. Verify through the API: `psp_exporter_build_info` reports `X.Y.Z`, every
-   configured source and probe is up, all pssst rules are `ok`. A reload
-   restarts every pending `for` timer, so maintenance alerts reappear after
-   their fifteen minutes.
+   configured source and probe is up, all pssst rules are `ok`. A reload keeps
+   alert state, but a redeployed exporter starts with an empty cache, so every
+   `for` timer restarts: maintenance alerts reappear after fifteen minutes.
 
 Rollback: the previous images stay on the NAS; restore the saved stack file
 and the rules backup, then reload.
