@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      # fmt-check lists sources with ripgrep, absent from the runner image.
+      - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ripgrep
       - run: make fmt-check lint vuln test test-race
       - name: Build release binaries
         env:
