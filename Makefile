@@ -2,18 +2,26 @@ RUNTIME ?= podman
 COMPOSE ?= $(RUNTIME) compose
 IMAGE ?= pssst:dev
 
-.PHONY: fmt fmt-check lint test test-race build image up down rules-test smoke
+.PHONY: fmt fmt-check lint vuln test test-race build image up down rules-test smoke
 
+# rg gets an explicit path: without one it searches stdin whenever stdin is
+# not a terminal, which hangs under CI and in scripts.
 fmt:
 	@command -v rg >/dev/null
-	gofmt -w $$(rg --files -g '*.go')
+	gofmt -w $$(rg --files -g '*.go' .)
 
 fmt-check:
 	@command -v rg >/dev/null
-	test -z "$$(gofmt -l $$(rg --files -g '*.go'))"
+	test -z "$$(gofmt -l $$(rg --files -g '*.go' .))"
 
+# Analyzers are pinned as go.mod tools, so CI and workstations agree.
 lint:
 	go vet ./...
+	go tool staticcheck ./...
+
+# Needs network access to the Go vulnerability database.
+vuln:
+	go tool govulncheck ./...
 
 test:
 	go test ./...

@@ -2,18 +2,33 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PROMETHEUS_IMAGE: quay.io/prometheus/prometheus:v3.14.0
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          go-version: "1.27.1"
-      - run: make fmt-check lint test test-race build
+          go-version-file: go.mod
+      - run: make fmt-check lint vuln test test-race build
       - name: Validate Prometheus rules
         run: |
-          docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace quay.io/prometheus/prometheus:v3.14.0 check rules deploy/prometheus/pssst.yml
-          docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace quay.io/prometheus/prometheus:v3.14.0 test rules deploy/prometheus/pssst-rules-test.yml
+          docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace "$PROMETHEUS_IMAGE" check rules deploy/prometheus/pssst.yml
+          docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace "$PROMETHEUS_IMAGE" test rules deploy/prometheus/pssst-rules-test.yml
+
+  # Real containers, real Prometheus, synthetic provider: the only check that
+  # proves both signals reach the recording rules independently.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: make smoke RUNTIME=docker

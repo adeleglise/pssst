@@ -50,7 +50,7 @@ Three corollaries, each already encoded in tests:
 ## Before claiming anything works
 
 ```sh
-make fmt-check lint test test-race build rules-test
+make fmt-check lint vuln test test-race build rules-test
 make smoke        # real containers, real Prometheus, synthetic provider
 ```
 

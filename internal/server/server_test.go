@@ -27,7 +27,7 @@ func TestIndependentSignalsIntegration(t *testing.T) {
 	statusServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		statusRequests.Add(1)
 		if sourceDown.Load() {
-			http.Error(w, "private response", 503)
+			http.Error(w, "private response", http.StatusServiceUnavailable)
 			return
 		}
 		indicator, state, incidents := "none", "operational", "[]"
@@ -40,7 +40,7 @@ func TestIndependentSignalsIntegration(t *testing.T) {
 	bbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		probeRequests.Add(1)
 		if collectionDown.Load() {
-			http.Error(w, "secret", 503)
+			http.Error(w, "secret", http.StatusServiceUnavailable)
 			return
 		}
 		success := 1

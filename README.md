@@ -85,10 +85,11 @@ curl 'http://127.0.0.1:18080/control'                           # read state
 Driving them separately is the point: it reproduces the unannounced failure and
 the confirmed incident on demand.
 
-The full check, all of it offline except `smoke`:
+The full check, all of it offline except `vuln` and `smoke`. CI runs the same
+targets:
 
 ```sh
-make fmt-check lint test test-race build rules-test smoke
+make fmt-check lint vuln test test-race build rules-test smoke
 ```
 
 ## Configuration
