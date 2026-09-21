@@ -1,13 +1,16 @@
 name: Release
 
-# A version tag publishes a GitHub release: the full offline check, then the
-# binaries from `make dist` and the matching CHANGELOG section as notes.
+# A version tag publishes a GitHub release: the Go checks and rule tests, then
+# the binaries from `make dist` and the matching CHANGELOG section as notes.
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
   contents: write
+
+env:
+  PROMETHEUS_IMAGE: quay.io/prometheus/prometheus:v3.14.0
 
 jobs:
   release:
@@ -22,6 +25,10 @@ jobs:
       # fmt-check lists sources with ripgrep, absent from the runner image.
       - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ripgrep
       - run: make fmt-check lint vuln test test-race
+      - name: Validate Prometheus rules
+        run: |
+          docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace "$PROMETHEUS_IMAGE" check rules deploy/prometheus/pssst.yml
+          docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace "$PROMETHEUS_IMAGE" test rules deploy/prometheus/pssst-rules-test.yml
       - name: Build release binaries
         env:
           TAG: ${{ github.ref_name }}

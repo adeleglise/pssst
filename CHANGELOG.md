@@ -32,8 +32,7 @@ ran on the NAS.
 
 - PayPal: an event with an unrecognized or empty state or environment was
   dropped, leaving the provider operational. Only `closed` and `sandbox`
-  events are skipped now; anything else counts as an incident of unknown
-  severity.
+  events are skipped now; anything else counts as an active incident.
 - HiPay: a monitor list without its total stopped after the first page and
   could export a partial list as healthy. The total is now required, constant
   across pages and met exactly.
@@ -41,7 +40,9 @@ ran on the NAS.
   of the paging alerts, so a source failing one poll in ten could never page.
   Correlation now depends on the age of the last success only.
 - Rules: a failure inside an announced maintenance window paged as an
-  unannounced failure. It now raises only the observed-failure warning.
+  unannounced failure, or as a confirmed incident where the page flags
+  components under maintenance. Without a declared incident it now raises only
+  the observed-failure warning.
 - Datadog never collected the three counters. The OpenMetrics check expects
   counter names without `_total`, and the list now uses them.
 - `deploy/compose.nas.yml` described a stack that could not be scraped. It

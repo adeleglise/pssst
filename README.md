@@ -262,8 +262,9 @@ fresh. `psp:confirmed_incident` needs both; `psp:unannounced_failure` needs an
 observed failure plus a fresh source reporting nothing, deliberately absent for
 `type: none` and for stale sources, because you cannot call a failure
 unannounced when nobody was listening. An open maintenance window is an
-announcement, not an incident: a failure inside it is neither confirmed nor
-unannounced, and only the observed-failure warning fires.
+announcement, not an incident: unless an incident is declared alongside it, a
+failure inside it is neither confirmed nor unannounced, and only the
+observed-failure warning fires.
 
 Alerts use sustained `for` periods so one bad poll never pages: observed failure
 5m, confirmed incident 5m, unannounced failure 10m, collection failure 5m,
@@ -310,6 +311,9 @@ published.
 kubectl kustomize deploy | kubectl apply -f -
 ```
 
+No registry hosts the image yet: set `newName` in the kustomization's `images`
+entry to the one the cluster pulls from, or the pod stays in ImagePullBackOff.
+
 The inventory is generated into a ConfigMap rather than copied, so the cluster
 and the compose stack cannot drift, and the generated name carries a content
 hash so an inventory change rolls the pods instead of leaving them on a stale
@@ -340,8 +344,8 @@ that directory's README.
 
 ## Releases
 
-Versions follow [CHANGELOG.md](CHANGELOG.md). Pushing a `vX.Y.Z` tag runs the
-offline checks again, builds static binaries with `make dist` and publishes
+Versions follow [CHANGELOG.md](CHANGELOG.md). Pushing a `vX.Y.Z` tag reruns the
+Go checks and the rule tests, builds static binaries with `make dist` and publishes
 them with their checksums and the matching changelog section. A tag without a
 changelog section fails the release. `make dist` reproduces the same bytes
 locally.

@@ -1,88 +1,79 @@
-# MVP validation — 2026-09-18
+# Validation, v1.0.0, 2026-09-21
 
-Implementation and review completed in `/Users/alaindeleglise/repos/pssst`, on `feat/pssst-mvp`. Changes remain uncommitted and have not been pushed. The supplied input plan is preserved in `docs/specification.md`; decisions are documented in `docs/superpowers/specs/2026-09-18-pssst-design.md`.
+Evidence gathered before tagging v1.0.0. The MVP validation of 2026-09-18 is
+in the git history of this file.
 
-## Results
+## Production before the release
+
+The NAS runs 0.5.0. Its Go code is the release base, 724c10b: no Go file
+changed after b584cf0. Inspected read-only through the NAS Prometheus API and
+the Portainer API; nothing on the NAS was modified.
 
 | Check | Result |
 | --- | --- |
-| `make fmt-check lint test test-race build rules-test` | Passed on the final Go source and rules. Formatting, `go vet`, unit/integration tests, race detector, both binaries, and all rule fixtures passed. |
+| Scrape target `pssst:9099` | `up`, 3.7 ms scrape, no error; `avg_over_time(up[7d])` is 1. |
+| `psp_exporter_build_info` | `version="0.5.0"`. |
+| Declared sources | 21 configured, 21 with `psp_status_source_up == 1`. |
+| Providers | 24 `psp_info` series. |
+| Probes | 48 collected, 48 successful. |
+| Failures over the last hour | No failed status poll, no failed collection. |
+| Rules | 13 loaded from `/etc/prometheus/pssst.rules.yml`, all `ok`, expressions identical to `deploy/prometheus/pssst.yml` at 724c10b. |
+| Firing | `PSPMaintenanceApproaching` (info) for six providers with announced windows. |
+| Stack | Portainer stack `pssst`: `localhost/pssst-nas:0.5.0` and `localhost/pssst-blackbox-nas:0.4.0`, both on `monitoring_default`, no published port. |
+
+The stack differed from `deploy/compose.nas.yml`, which could not have been
+scraped as committed. The file now matches the running stack.
+
+## Release branch
+
+| Check | Result |
+| --- | --- |
+| `make fmt-check lint vuln test test-race build rules-test` | Pass. staticcheck clean, govulncheck reports no vulnerability, 14 rules, all promtool fixtures. |
+| `make smoke` | Pass on Podman 6.1.1: both signals driven independently, `psp:unannounced_failure` and `psp:confirmed_incident` reached, recovery observed. |
+| Rule suite repeated 10 times | 10 passes: no evaluation-order flakiness. |
+| `make dist` run twice | Identical `SHA256SUMS`. |
 | `go mod verify` | All modules verified. |
-| `podman build --target exporter -t localhost/pssst:dev .` | Passed; non-root scratch image includes CA roots. |
-| `podman build --target fake-psp -t localhost/pssst-fake:dev .` | Passed. |
-| `podman compose config --quiet` | Passed. |
-| Container `promtool check config /etc/prometheus/prometheus.yml` | Valid Prometheus configuration and 13 rules. |
-| `make smoke` | Passed with the real local Podman engine, Blackbox 0.28.0 and Prometheus 3.14.0. |
-| Smoke isolation regression | Passed while a separate normal demo was running with both failure switches set. That state remained unchanged after smoke teardown. |
-| Compiled binary process check | `/readyz`, `/metrics`, JSON logs, SIGTERM cancellation and exit code 0 passed using a temporary local config. |
-| Grafana dashboard | JSON parsed; all ten panel queries validated using `promtool check rules` after resolving dashboard selectors. |
-| Independent code review | Core review and delivery review completed; all actionable findings fixed and re-reviewed. |
+| `pssst-check` on the hardened adapters | PayPal and HiPay return the same snapshot as production: PayPal operational with two scheduled windows, HiPay operational. |
 
-The final smoke test verified a successful Prometheus scrape, initially healthy signals, a declared-only incident while the real Blackbox probe stays healthy, API failure while official status is healthy, `psp:unannounced_failure`, `psp:confirmed_incident`, and recovery. Automated tests never used real PSP production endpoints.
+## Review
 
-The collection helper rule is evaluated before its consumers. A new regression fixture failed with the original rule order, then passed with the corrected order; it covers healthy startup and immediate transition to an unknown endpoint. Rule tests specify group evaluation order, and ten repeated rule-suite runs passed after an earlier cross-group ordering ambiguity was corrected.
+An independent Claude Opus review of the whole code at 724c10b returned **do
+not ship**: two P0 and five P1 findings. All seven are fixed on the release
+branch, each bug reproduced by a failing test before its fix.
 
-## Review changes
+| Finding | Fix |
+| --- | --- |
+| P0 PayPal dropped events with an unknown state or environment | Allow-list: only `closed` and `sandbox` are skipped. |
+| P0 HiPay accepted a partial list when the total was missing | Total required, constant and met exactly. |
+| P1 One failed poll reset the paging alerts | Correlation gated on freshness only. |
+| P1 Announced maintenance paged as unannounced failure | Excluded from `psp:unannounced_failure`, and from `psp:confirmed_incident` unless an incident is declared; the warning still fires. |
+| P1 NAS compose stack could not be scraped | Matches the running stack. |
+| P1 Kubernetes image pinned to `pssst:0.5.0` | kustomize `images` entry, tag 1.0.0. |
+| P1 Datadog skipped the three counters | Listed without `_total`, as the OpenMetrics check requires. |
 
-- Incomplete status responses fail atomically. Contradictory component failures cannot produce a healthy overall declaration.
-- Remote incident IDs are constrained before entering logs; HTTP status metrics accept only zero or valid HTTP codes.
-- Failed probes differ from unavailable probe collection. Partly unknown PSPs cannot produce a healthy recording state; known failures remain visible even when another endpoint is unknown.
-- Smoke uses a separate Compose project and ports, with no HTTP mutation in its failure-cleanup handler.
-- The example DNS module includes a required query name; the real Blackbox startup caught the initial omission.
+The same reviewer then read the release branch and returned **ship with
+fixes**: a failure inside a window that Statuspage or Instatus flags on its
+components still raised `PSPConfirmedIncident`. A failing fixture reproduced
+it before the fix. The other remarks were wording in the README, the
+changelog and the release workflow, now corrected; the release workflow also
+runs the rule tests.
 
-## Environment and remaining limits
+## Deferred
 
-The local runtime was Podman (client 6.1.1, machine 5.1.2); `podman compose` uses the installed Compose provider against the Podman socket. No Docker daemon was used for local builds or execution. The smoke project and volume were removed. The separate demo containers were stopped, with their Prometheus volume retained after automatic approval review rejected deleting that data. The default `make down` now preserves the normal demo volume.
+- The Blackbox request carries no scrape-timeout header, so a module timeout
+  at or above `polling.timeout` reads as a collection failure. The real
+  inventory keeps its modules below it.
+- Adyen is probed on its test environment against a production status page.
+- Datadog reads last-known-good values without the freshness gating the
+  rules apply; monitors there must copy it.
+- Kener and HiPay publish no incidents and Adyen no maintenance, yet those
+  series export 0.
+- No NetworkPolicy ships with the Kubernetes manifests.
+- An open window mutes the unannounced and confirmed signals for the whole
+  provider, even when it covers an unrelated component.
 
-Portainer at `192.168.1.250:19443` refused TCP connections. Its token was retrieved from the specified macOS Keychain entry without displaying it or saving it to the repository. No NAS services/configuration were changed. `examples/prometheus-existing.yml`, the recording/alert rules, and the Grafana dashboard are prepared for integration. The dashboard has not been imported into the NAS Grafana, whose version and datasource configuration could not be inspected.
+## Not done
 
-The MVP intentionally has in-memory state and static configuration requiring restart, no history ingestion or generic HTML scraping, and no PSP-specific business checks. No real PSP production URL is assumed to be a health endpoint. The next development step is to select real PSP/component IDs and reviewed Blackbox modules, then connect the exporter to the existing NAS Prometheus and import the dashboard once the Portainer endpoint is reachable.
-
-## Added files
-
-- `.dockerignore`
-- `.github/workflows/ci.yml`
-- `.gitignore`
-- `Dockerfile`
-- `Makefile`
-- `README.md`
-- `cmd/fake-psp/main.go`
-- `cmd/fake-psp/main_test.go`
-- `cmd/fake-psp/test_helpers_test.go`
-- `cmd/psp-exporter/main.go`
-- `compose.yaml`
-- `deploy/blackbox/blackbox.yml`
-- `deploy/grafana/pssst.json`
-- `deploy/prometheus/prometheus.yml`
-- `deploy/prometheus/pssst-rules-test.yml`
-- `deploy/prometheus/pssst.yml`
-- `docs/adr/0001-blackbox.md`
-- `docs/specification.md`
-- `docs/superpowers/plans/2026-09-18-pssst.md`
-- `docs/superpowers/specs/2026-09-18-pssst-design.md`
-- `docs/validation.md`
-- `examples/prometheus-existing.yml`
-- `examples/pssst.compose.yml`
-- `examples/pssst.production.yml`
-- `go.mod`
-- `go.sum`
-- `internal/blackbox/client.go`
-- `internal/blackbox/client_test.go`
-- `internal/blackbox/model.go`
-- `internal/cache/cache.go`
-- `internal/cache/cache_test.go`
-- `internal/collector/collector.go`
-- `internal/collector/collector_test.go`
-- `internal/config/config.go`
-- `internal/config/config_test.go`
-- `internal/httpclient/client.go`
-- `internal/scheduler/scheduler.go`
-- `internal/scheduler/scheduler_test.go`
-- `internal/server/server.go`
-- `internal/server/server_test.go`
-- `internal/status/none/none.go`
-- `internal/status/none/none_test.go`
-- `internal/status/status.go`
-- `internal/status/statuspage/client.go`
-- `internal/status/statuspage/client_test.go`
-- `scripts/smoke.sh`
+v1.0.0 is not deployed. The NAS still runs 0.5.0 and the 724c10b rules.
+Deploying means building both NAS images at 1.0.0, updating the Portainer
+stack, copying the new rules file and reloading Prometheus.
