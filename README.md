@@ -44,6 +44,7 @@ your own is a few lines of YAML.
 - [Operations](#operations)
 - [Development](#development)
 - [Known limits](#known-limits)
+- [License](#license)
 
 ## Quick start
 
@@ -555,3 +556,7 @@ image.
 - The Blackbox request carries no scrape-timeout header, so module timeouts
   must stay below `polling.timeout`.
 - No NetworkPolicy ships with the Kubernetes manifests.
+
+## License
+
+[MIT](LICENSE).

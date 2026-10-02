@@ -19,6 +19,7 @@ publishes the section matching the tag as the release notes.
 
 ### Added
 
+- The MIT license.
 - The exporter image is published to `ghcr.io/adeleglise/pssst` for
   linux/amd64 and linux/arm64: `edge` from `main`, `X.Y.Z`, `X.Y` and
   `latest` from release tags.
