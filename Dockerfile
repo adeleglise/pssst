@@ -28,12 +28,14 @@ EXPOSE 9099
 ENTRYPOINT ["/pssst"]
 CMD ["-config", "/etc/pssst/config.yml"]
 
-# Deployment images carry their configuration. The inventory is versioned code,
-# so a change ships as a new image rather than as a file edited on the host.
-FROM exporter AS exporter-nas
+# Bundled images carry the repository's configuration, for deployments that
+# build from their own fork: the inventory is versioned code, so a change ships
+# as a commit rather than as a file edited on the host. deploy/compose.yml
+# builds these.
+FROM exporter AS exporter-bundled
 COPY deploy/pssst.psp.yml /etc/pssst/config.yml
 
-FROM quay.io/prometheus/blackbox-exporter:v0.28.0 AS blackbox-nas
+FROM quay.io/prometheus/blackbox-exporter:v0.28.0 AS blackbox-bundled
 COPY deploy/blackbox/blackbox.yml /etc/blackbox/blackbox.yml
 ENTRYPOINT ["/bin/blackbox_exporter"]
 CMD ["--config.file=/etc/blackbox/blackbox.yml"]

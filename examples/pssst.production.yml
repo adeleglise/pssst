@@ -10,7 +10,7 @@ polling:
   jitter: 5s
 
 blackbox:
-  base_url: "http://blackbox-exporter.monitoring.svc:9115"
+  base_url: "http://pssst-blackbox:9115"
   headers:
     Authorization: "Bearer ${PSSST_BLACKBOX_TOKEN}"
 

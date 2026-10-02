@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -285,6 +286,25 @@ func TestDatadogListNamesRealMetrics(t *testing.T) {
 	if len(check.OpenMetrics.Instances) != 1 || len(check.OpenMetrics.Instances[0].Metrics) == 0 {
 		t.Fatal("expected one instance with an explicit metric list")
 	}
+	listed := check.OpenMetrics.Instances[0].Metrics
+
+	// The agent configuration for hosts outside Kubernetes must ship the same
+	// list, or the two deployments bill and alert differently.
+	raw, err = os.ReadFile("../../deploy/datadog/openmetrics.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var agent struct {
+		Instances []struct {
+			Metrics []string `yaml:"metrics"`
+		} `yaml:"instances"`
+	}
+	if err := yaml.Unmarshal(raw, &agent); err != nil {
+		t.Fatal(err)
+	}
+	if len(agent.Instances) != 1 || !slices.Equal(agent.Instances[0].Metrics, listed) {
+		t.Errorf("deploy/datadog/openmetrics.yaml lists %v, the Kubernetes annotation %v", agent.Instances, listed)
+	}
 
 	defined := map[string]bool{}
 	for _, d := range definitions {
@@ -293,7 +313,7 @@ func TestDatadogListNamesRealMetrics(t *testing.T) {
 			t.Errorf("counter %s must end in _total", d.name)
 		}
 	}
-	for _, name := range check.OpenMetrics.Instances[0].Metrics {
+	for _, name := range listed {
 		if strings.HasSuffix(name, "_total") {
 			t.Errorf("%s: list counters without _total, the check skips the suffixed name", name)
 		}
