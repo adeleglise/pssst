@@ -275,3 +275,29 @@ func TestScheduledMaintenanceWithoutDate(t *testing.T) {
 		t.Errorf("next maintenance = %v, want the only dated window %v", snapshot.NextMaintenance, want)
 	}
 }
+
+// Statuspage moves an incident to postmortem after resolving it. Counting it
+// would hold the provider in a declared incident long after recovery.
+func TestPostmortemIsResolved(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{
+			"components":[{"id":"payments","status":"operational"}],
+			"incidents":[{"id":"incident-over","status":"postmortem","impact":"major"}],
+			"status":{"indicator":"none"}
+		}`))
+	}))
+	defer server.Close()
+
+	got, err := statuspage.New(server.URL, nil, nil, time.Second).Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+	if len(got.Incidents) != 0 || len(got.Details) != 0 {
+		t.Errorf("incidents = %#v, a postmortem is not an active incident", got.Incidents)
+	}
+	if !got.Components["overall"] {
+		t.Error("a postmortem alone must leave the page operational")
+	}
+}

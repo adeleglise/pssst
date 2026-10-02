@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/adeleglise/pssst/internal/source"
 )
 
 const MaxConfigBytes = 1 << 20
@@ -31,15 +33,8 @@ var Kinds = [...]string{KindPSP, "acquirer", "bank"}
 
 const KindPSP = "psp"
 
-const (
-	StatusTypeNone         = "none"
-	StatusTypeStatuspageV2 = "statuspage_v2"
-	StatusTypeInstatusV1   = "instatus_v1"
-	StatusTypeAdyenV1      = "adyen_v1"
-	StatusTypePayPalV1     = "paypal_v1"
-	StatusTypeHiPayV1      = "hipay_v1"
-	StatusTypeKenerV1      = "kener_v1"
-)
+// StatusTypeNone declares that a provider publishes nothing machine-readable.
+const StatusTypeNone = source.None
 
 var envReference = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
 var headerName = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
@@ -192,26 +187,19 @@ func (c Config) validate() error {
 		if !validKind(p.Kind) {
 			return fmt.Errorf("%s.kind must be one of %v", prefix, Kinds)
 		}
-		switch p.Status.Type {
-		case StatusTypeNone:
+		adapter, known := source.Lookup(p.Status.Type)
+		switch {
+		case p.Status.Type == StatusTypeNone:
 			if p.Status.BaseURL != "" || len(p.Status.Headers) > 0 || len(p.Status.Components) > 0 {
 				return fmt.Errorf("%s.status: none cannot have a URL, headers or components", prefix)
 			}
-		case StatusTypeStatuspageV2, StatusTypeInstatusV1, StatusTypeHiPayV1, StatusTypeKenerV1:
-			if !validURL(p.Status.BaseURL, true) {
-				return fmt.Errorf("%s.status.base_url must be an HTTP(S) URL without credentials, query or fragment", prefix)
-			}
-		case StatusTypeAdyenV1, StatusTypePayPalV1:
-			// These providers publish no component inventory, so a component
-			// mapping could never resolve and is rejected rather than ignored.
-			if !validURL(p.Status.BaseURL, true) {
-				return fmt.Errorf("%s.status.base_url must be an HTTP(S) URL without credentials, query or fragment", prefix)
-			}
-			if len(p.Status.Components) > 0 {
-				return fmt.Errorf("%s.status: this source publishes no components", prefix)
-			}
-		default:
-			return fmt.Errorf("%s.status.type must be statuspage_v2, instatus_v1, hipay_v1, kener_v1, adyen_v1, paypal_v1 or none", prefix)
+		case !known:
+			return fmt.Errorf("%s.status.type must be one of %s or none", prefix, strings.Join(source.Types(), ", "))
+		case !validURL(p.Status.BaseURL, true):
+			return fmt.Errorf("%s.status.base_url must be an HTTP(S) URL without credentials, query or fragment", prefix)
+		case !adapter.Components && len(p.Status.Components) > 0:
+			// A mapping could never resolve, so it is rejected rather than ignored.
+			return fmt.Errorf("%s.status: this source publishes no components", prefix)
 		}
 		if !validHeaders(p.Status.Headers) {
 			return fmt.Errorf("%s.status.headers are invalid", prefix)
@@ -221,7 +209,7 @@ func (c Config) validate() error {
 		}
 		componentIDs := map[string]bool{}
 		for id, upstream := range p.Status.Components {
-			if id == "overall" || !identifier.MatchString(id) || !validUpstreamID(p.Status.Type, upstream) || componentIDs[upstream] {
+			if id == "overall" || !identifier.MatchString(id) || !validUpstreamID(adapter.DisplayNameKeys, upstream) || componentIDs[upstream] {
 				return fmt.Errorf("%s.status.components must have valid unique IDs; overall is reserved", prefix)
 			}
 			componentIDs[upstream] = true
@@ -271,8 +259,8 @@ func validURL(s string, base bool) bool {
 // A hosted page exposes opaque tokens; a page read from markup exposes the
 // displayed label, which legitimately contains spaces. Only the local alias
 // becomes a metric label, so only the alias stays strict.
-func validUpstreamID(sourceType, value string) bool {
-	if sourceType != StatusTypeKenerV1 {
+func validUpstreamID(displayName bool, value string) bool {
+	if !displayName {
 		return identifier.MatchString(value)
 	}
 	if value == "" || len(value) > 128 {

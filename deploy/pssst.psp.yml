@@ -399,6 +399,9 @@ psps:
         api: f44gkrt0c79b
         webhooks: rmyy4c4j443l
         kyc_documents: q8kd1lswynwq
+    # The API host is per customer (<company>.api.treezor.co), a customer
+    # identifier that stays out of this file: the website is probed instead,
+    # so the observed signal says nothing about the API itself.
     probes:
       - id: api_https
         module: http_api_reachable
@@ -413,6 +416,8 @@ psps:
     status:
       type: statuspage_v2
       base_url: "https://powens.statuspage.io"
+    # The API host is per customer (<domain>.biapi.pro): the website is probed
+    # instead, so the observed signal says nothing about the API itself.
     probes:
       - id: site_https
         module: http_api_reachable

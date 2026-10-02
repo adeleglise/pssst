@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
+	"maps"
 	"strconv"
 	"strings"
 	"time"
@@ -38,22 +38,18 @@ type Client struct {
 // New takes the full monitor-list URL published by the status page, because the
 // page key is part of that path and appears nowhere else.
 func New(listURL string, headers map[string]string, monitors map[string]string, timeout time.Duration) *Client {
-	endpoint, err := normalize(listURL)
-	mapping := make(map[string]string, len(monitors))
-	for alias, remoteID := range monitors {
-		mapping[alias] = remoteID
-	}
+	endpoint, err := status.Endpoint(listURL, "")
 	return &Client{
 		endpoint:   endpoint,
 		endpointOK: err == nil,
 		http:       httpclient.New(timeout, headers),
-		mapping:    mapping,
+		mapping:    maps.Clone(monitors),
 	}
 }
 
 func (c *Client) Fetch(ctx context.Context) (status.Snapshot, error) {
 	if !c.endpointOK {
-		return status.Snapshot{}, errors.New("invalid status page endpoint")
+		return status.Snapshot{}, status.ErrInvalidEndpoint
 	}
 
 	states := map[string]string{}
@@ -132,26 +128,12 @@ func collect(body []byte, states map[string]string) (int, error) {
 	return *raw.PSP.TotalMonitors, nil
 }
 
+// build resolves the collected monitors. HiPay publishes no page-level
+// rollup, so the monitors are the rollup.
 func build(states map[string]string, mappings map[string]string) (status.Snapshot, error) {
-	snapshot := status.Snapshot{
-		Components: map[string]bool{"overall": true},
-		Incidents:  make(map[string]int),
-	}
-	// HiPay publishes no page-level rollup, so the monitors are the rollup.
-	for _, class := range states {
-		if !operational(class) {
-			snapshot.Components["overall"] = false
-		}
-	}
-	for alias, remoteID := range mappings {
-		if alias == "" || alias == "overall" || remoteID == "" {
-			return status.Snapshot{}, errors.New("invalid configured component")
-		}
-		class, found := states[remoteID]
-		if !found {
-			return status.Snapshot{}, errors.New("configured component missing from status summary")
-		}
-		snapshot.Components[alias] = operational(class)
+	snapshot := status.NewSnapshot(true)
+	if err := snapshot.ResolveComponents(states, mappings, operational); err != nil {
+		return status.Snapshot{}, err
 	}
 	return snapshot, nil
 }
@@ -160,14 +142,4 @@ func build(states map[string]string, mappings map[string]string) (status.Snapsho
 // class is never reported operational.
 func operational(class string) bool {
 	return strings.ToLower(strings.TrimSpace(class)) == classHealthy
-}
-
-func normalize(listURL string) (string, error) {
-	u, err := url.Parse(listURL)
-	if err != nil || u.Scheme == "" || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return "", errors.New("invalid endpoint")
-	}
-	u.RawQuery = ""
-	u.Fragment = ""
-	return strings.TrimRight(u.String(), "/"), nil
 }

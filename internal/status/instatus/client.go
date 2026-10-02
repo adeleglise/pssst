@@ -7,8 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/url"
-	"regexp"
+	"maps"
 	"strings"
 	"time"
 
@@ -31,8 +30,6 @@ const (
 	maintenanceCompleted  = "COMPLETED"
 )
 
-var entityID = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
-
 // Client retrieves one complete current-state snapshot from an Instatus page.
 type Client struct {
 	summary    string
@@ -43,25 +40,20 @@ type Client struct {
 }
 
 func New(baseURL string, headers map[string]string, components map[string]string, timeout time.Duration) *Client {
-	summary, summaryErr := endpoint(baseURL, summaryPath)
-	componentList, componentErr := endpoint(baseURL, componentsPath)
-
-	mapping := make(map[string]string, len(components))
-	for alias, remoteID := range components {
-		mapping[alias] = remoteID
-	}
+	summary, summaryErr := status.Endpoint(baseURL, summaryPath)
+	componentList, componentErr := status.Endpoint(baseURL, componentsPath)
 	return &Client{
 		summary:    summary,
 		components: componentList,
 		endpointOK: summaryErr == nil && componentErr == nil,
 		http:       httpclient.New(timeout, headers),
-		mapping:    mapping,
+		mapping:    maps.Clone(components),
 	}
 }
 
 func (c *Client) Fetch(ctx context.Context) (status.Snapshot, error) {
 	if !c.endpointOK {
-		return status.Snapshot{}, errors.New("invalid status page endpoint")
+		return status.Snapshot{}, status.ErrInvalidEndpoint
 	}
 	if len(c.mapping) > maxEntities {
 		return status.Snapshot{}, errors.New("too many configured components")
@@ -125,7 +117,7 @@ func decode(summaryBody, componentsBody []byte, mappings map[string]string) (sta
 
 	componentStates := make(map[string]string, len(components))
 	for _, component := range components {
-		if !entityID.MatchString(component.ID) || component.Status == "" {
+		if !status.SafeID.MatchString(component.ID) || component.Status == "" {
 			return invalid()
 		}
 		if _, exists := componentStates[component.ID]; exists {
@@ -134,25 +126,9 @@ func decode(summaryBody, componentsBody []byte, mappings map[string]string) (sta
 		componentStates[component.ID] = component.Status
 	}
 
-	snapshot := status.Snapshot{
-		Components: map[string]bool{"overall": strings.ToUpper(*summary.Page.Status) == pageOperational},
-		Incidents:  make(map[string]int),
-	}
-	// A contradictory page rollup must not hide an explicitly failed component.
-	for _, state := range componentStates {
-		if !operational(state) {
-			snapshot.Components["overall"] = false
-		}
-	}
-	for alias, remoteID := range mappings {
-		if alias == "" || alias == "overall" || remoteID == "" {
-			return status.Snapshot{}, errors.New("invalid configured component")
-		}
-		remoteState, found := componentStates[remoteID]
-		if !found {
-			return status.Snapshot{}, errors.New("configured component missing from status summary")
-		}
-		snapshot.Components[alias] = operational(remoteState)
+	snapshot := status.NewSnapshot(strings.ToUpper(*summary.Page.Status) == pageOperational)
+	if err := snapshot.ResolveComponents(componentStates, mappings, operational); err != nil {
+		return status.Snapshot{}, err
 	}
 
 	if err := addIncidents(&snapshot, summary.ActiveIncidents); err != nil {
@@ -167,7 +143,7 @@ func decode(summaryBody, componentsBody []byte, mappings map[string]string) (sta
 func addIncidents(snapshot *status.Snapshot, incidents []rawIncident) error {
 	seen := make(map[string]struct{}, len(incidents))
 	for _, incident := range incidents {
-		if !entityID.MatchString(incident.ID) || incident.Status == "" {
+		if !status.SafeID.MatchString(incident.ID) || incident.Status == "" {
 			return errors.New("invalid status summary")
 		}
 		if _, exists := seen[incident.ID]; exists {
@@ -179,9 +155,7 @@ func addIncidents(snapshot *status.Snapshot, incidents []rawIncident) error {
 		if state == "resolved" {
 			continue
 		}
-		severity := normalizeSeverity(incident.Impact)
-		snapshot.Incidents[severity]++
-		snapshot.Details = append(snapshot.Details, status.Incident{ID: incident.ID, State: state, Severity: severity})
+		snapshot.AddIncident(incident.ID, state, normalizeSeverity(incident.Impact))
 	}
 	return nil
 }
@@ -189,7 +163,7 @@ func addIncidents(snapshot *status.Snapshot, incidents []rawIncident) error {
 func addMaintenance(snapshot *status.Snapshot, windows []rawMaintenance) error {
 	seen := make(map[string]struct{}, len(windows))
 	for _, window := range windows {
-		if !entityID.MatchString(window.ID) || window.Status == "" {
+		if !status.SafeID.MatchString(window.ID) || window.Status == "" {
 			return errors.New("invalid status summary")
 		}
 		if _, exists := seen[window.ID]; exists {
@@ -208,10 +182,7 @@ func addMaintenance(snapshot *status.Snapshot, windows []rawMaintenance) error {
 		}
 		switch strings.ToUpper(window.Status) {
 		case maintenanceScheduled:
-			snapshot.MaintenanceScheduled++
-			if !start.IsZero() && (snapshot.NextMaintenance.IsZero() || start.Before(snapshot.NextMaintenance)) {
-				snapshot.NextMaintenance = start
-			}
+			snapshot.AddScheduledMaintenance(start)
 		case maintenanceInProgress:
 			snapshot.MaintenanceActive++
 		case maintenanceCompleted:
@@ -257,16 +228,4 @@ func normalizeIncidentState(value string) string {
 	default:
 		return "unknown"
 	}
-}
-
-func endpoint(baseURL, path string) (string, error) {
-	u, err := url.Parse(baseURL)
-	if err != nil || u.Scheme == "" || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return "", errors.New("invalid endpoint")
-	}
-	u.Path = strings.TrimRight(u.Path, "/") + path
-	u.RawPath = ""
-	u.RawQuery = ""
-	u.Fragment = ""
-	return u.String(), nil
 }

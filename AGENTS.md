@@ -15,7 +15,7 @@ failing while its own status page says nothing, and you can only see it if both
 signals reached Prometheus untouched. Any change that folds them into one
 "health" number, in Go or in a rule, destroys the product.
 
-Three corollaries, each already encoded in tests:
+Four corollaries, each already encoded in tests:
 
 1. **Absent is not healthy.** A provider with `type: none`, a source that never
    answered, a stale snapshot: all of these are *unknown*. Exporting them as
@@ -25,6 +25,9 @@ Three corollaries, each already encoded in tests:
 3. **A snapshot is atomic.** Half a document is an error, not a partial update.
    A failed poll updates health and freshness and leaves the last known good
    observation alone.
+4. **A value travels with its freshness.** Last known good is only true while
+   it is fresh. Every consumer must be able to tell: the rules compare the
+   timestamps with `time()`, Datadog reads the `*_fresh` gauges.
 
 ## Non-negotiable rules
 
@@ -44,10 +47,13 @@ Three corollaries, each already encoded in tests:
 - **Tests never touch a live provider.** Fixtures and `httptest` only. Use
   `.test` or `.invalid` hostnames. `bin/pssst-check` is the tool for looking at
   something real.
-- **Adding a metric means adding it to the Datadog list** in
-  `deploy/kubernetes/deployment.yaml`. That list is explicit because custom
-  metrics are billed per series. A counter goes in without its `_total`
-  suffix: the OpenMetrics check silently skips the suffixed name.
+- **The Datadog list is a cost decision, not a mirror of `/metrics`.** It lives
+  in `deploy/kubernetes/deployment.yaml` and is explicit and minimal because
+  custom metrics are billed per series. A new metric stays out unless a
+  Datadog monitor needs it; when one goes in, add its series count to the
+  README table. A counter goes in without its `_total` suffix: the OpenMetrics
+  check silently skips the suffixed name. `TestDatadogListNamesRealMetrics`
+  fails on a name the exporter does not define.
 
 ## Before claiming anything works
 
@@ -56,7 +62,9 @@ make fmt-check lint vuln test test-race build rules-test
 make smoke        # real containers, real Prometheus, synthetic provider
 ```
 
-`smoke` is the one that catches integration mistakes: it drives the declared
+`rules-test` needs `promtool` and `smoke` a container engine. Where either is
+missing, say which check did not run rather than claiming the set passed; CI
+runs both. `smoke` is the one that catches integration mistakes: it drives the declared
 and observed signals independently and asserts the recording rules produce
 `psp:unannounced_failure` and `psp:confirmed_incident`. If you changed rules,
 adapters, the cache or the collector, run it.
@@ -64,9 +72,15 @@ adapters, the cache or the collector, run it.
 Then look at real output before saying it is done:
 
 ```sh
+bin/pssst-check -config deploy/pssst.psp.yml   # every declared source, one line each
 bin/pssst-check -type <adapter> -url <url>
 curl -s localhost:9099/metrics | grep '^psp_'
 ```
+
+The inventory audit is how "the statuses are right" gets checked: open each
+provider's page next to its line. A sandbox without egress to the status hosts
+cannot do it; every line then reads `error`, never `operational`, and that is
+the tool working.
 
 Deployed changes get verified against the live Prometheus, not assumed:
 
@@ -79,7 +93,8 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 
 | Path | Role |
 | --- | --- |
-| `internal/status/` | One package per adapter. `status.go` holds the interface and the severity enum. |
+| `internal/status/` | One package per adapter. `status.go` holds the interface, the severity enum and the rules every adapter shares: `ResolveComponents`, `AddIncident`, `SafeID`. |
+| `internal/source/` | The one list of adapters. Config validation, the scheduler and `pssst-check` all read it. |
 | `internal/blackbox/` | Blackbox client. Parses exposition, keeps only bounded scalars. |
 | `internal/cache/` | The only mutable state. Race-safe, holds counters and freshness. |
 | `internal/collector/` | Reads the cache. **Never does I/O.** |
@@ -120,17 +135,21 @@ it gives the published checksums.
 
 ## Adding an adapter
 
-Copy the shape of `internal/status/instatus`, which is the most complete one.
+Copy the shape of `internal/status/instatus`, which is the most complete one,
+and build the snapshot with the helpers in `internal/status` rather than
+rewriting them: `NewSnapshot`, `ResolveComponents`, `AddIncident`,
+`AddScheduledMaintenance`.
 
 1. Write the tests first, including: a quiet page, a degraded component, an
    unknown state, a missing mapped component, a malformed document, a timeout,
    and free text in an identifier field.
 2. Implement `Fetch(ctx) (status.Snapshot, error)`. One complete snapshot or an
    error.
-3. Wire it in three places, all of which the compiler will not remind you
-   about: `internal/config` validation, `internal/scheduler.New`, and
-   `cmd/pssst-check`.
-4. Add a row to the adapter table in the README.
+3. Add one entry to `internal/source`. Say whether the source publishes
+   components, and whether their keys are displayed labels; validation,
+   the scheduler and `pssst-check` follow from it.
+4. Add a row to the adapter table in the README, saying what counts as an
+   active incident and as maintenance.
 5. Validate against the live source with `pssst-check` before adding it to the
    inventory.
 
@@ -147,6 +166,8 @@ entirely when empty (observed on SumUp), and publishes scheduled maintenance
 with `scheduled_for: null` (SumUp, GoCardless). Both used to fail the whole
 snapshot, making those providers permanently unusable. Required keys are
 `components` and the page indicator; an absent list means nothing is active.
+Statuspage also moves a resolved incident to `postmortem`, which was counted
+as an active incident of unknown state.
 
 **A page that answers is not the right page.** `status.bridgeapp.com` is a
 learning platform, and `bridge.instatus.com` is the default Instatus template.
@@ -216,6 +237,22 @@ environment against a status page that describes production. Live payment
 APIs often sit behind a merchant-specific prefix, which is a customer
 identifier and stays out of the inventory: probe a shared live host instead,
 here `checkoutshopper-live.adyen.com`.
+
+**Datadog has no `time()`.** Its metric queries cannot compare a timestamp
+with now, and the exporter keeps reporting a dead source's last good value,
+so the freshness test the rules apply was impossible there: a silent source
+read as healthy forever. The `*_fresh` gauges carry that test, per signal.
+They never combine declared and observed.
+
+**The OpenMetrics check tags by scrape URL.** `tag_by_endpoint` defaults to
+true, and the URL holds the pod IP: every reschedule minted a new set of
+billed series, under an `endpoint` tag that collided with PSSST's own label.
+It is off.
+
+**An unused adapter is a loaded gun.** A `none` adapter returning an empty
+successful snapshot sat in the tree, unused. Wired by mistake, it would have
+exported an absent source as freshly polled. It is gone, and the registry test
+asserts `none` has no adapter.
 
 **`rg PATTERN` without a path searches stdin.** When stdin is not a terminal,
 search mode reads it and waits: a scripted `rg -l` hung this way. Always pass

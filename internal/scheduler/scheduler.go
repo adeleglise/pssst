@@ -12,13 +12,8 @@ import (
 	"github.com/adeleglise/pssst/internal/blackbox"
 	"github.com/adeleglise/pssst/internal/cache"
 	"github.com/adeleglise/pssst/internal/config"
+	"github.com/adeleglise/pssst/internal/source"
 	"github.com/adeleglise/pssst/internal/status"
-	"github.com/adeleglise/pssst/internal/status/adyen"
-	"github.com/adeleglise/pssst/internal/status/hipay"
-	"github.com/adeleglise/pssst/internal/status/instatus"
-	"github.com/adeleglise/pssst/internal/status/kener"
-	"github.com/adeleglise/pssst/internal/status/paypal"
-	"github.com/adeleglise/pssst/internal/status/statuspage"
 )
 
 type worker struct {
@@ -116,22 +111,11 @@ func New(cfg config.Config, c *cache.Cache, logger *slog.Logger) *Scheduler {
 // an official source has no worker at all, which the cache reports as
 // unconfigured rather than healthy.
 func statusProvider(psp config.PSP, timeout time.Duration) (status.StatusProvider, bool) {
-	switch psp.Status.Type {
-	case config.StatusTypeStatuspageV2:
-		return statuspage.New(psp.Status.BaseURL, psp.Status.Headers, psp.Status.Components, timeout), true
-	case config.StatusTypeInstatusV1:
-		return instatus.New(psp.Status.BaseURL, psp.Status.Headers, psp.Status.Components, timeout), true
-	case config.StatusTypeHiPayV1:
-		return hipay.New(psp.Status.BaseURL, psp.Status.Headers, psp.Status.Components, timeout), true
-	case config.StatusTypeKenerV1:
-		return kener.New(psp.Status.BaseURL, psp.Status.Headers, psp.Status.Components, timeout), true
-	case config.StatusTypeAdyenV1:
-		return adyen.New(psp.Status.BaseURL, psp.Status.Headers, timeout), true
-	case config.StatusTypePayPalV1:
-		return paypal.New(psp.Status.BaseURL, psp.Status.Headers, timeout), true
-	default:
+	adapter, found := source.Lookup(psp.Status.Type)
+	if !found {
 		return nil, false
 	}
+	return adapter.New(psp.Status.BaseURL, psp.Status.Headers, psp.Status.Components, timeout), true
 }
 
 // Run blocks until all workers have stopped. A Scheduler is run exactly once.

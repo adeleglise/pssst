@@ -8,8 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
@@ -30,8 +28,6 @@ const (
 	environmentSandbox    = "sandbox"
 )
 
-var entityID = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
-
 // Client retrieves PayPal's current event list.
 type Client struct {
 	endpoint   string
@@ -40,7 +36,7 @@ type Client struct {
 }
 
 func New(baseURL string, headers map[string]string, timeout time.Duration) *Client {
-	endpoint, err := endpoint(baseURL, eventsPath)
+	endpoint, err := status.Endpoint(baseURL, eventsPath)
 	return &Client{
 		endpoint:   endpoint,
 		endpointOK: err == nil,
@@ -50,7 +46,7 @@ func New(baseURL string, headers map[string]string, timeout time.Duration) *Clie
 
 func (c *Client) Fetch(ctx context.Context) (status.Snapshot, error) {
 	if !c.endpointOK {
-		return status.Snapshot{}, errors.New("invalid status page endpoint")
+		return status.Snapshot{}, status.ErrInvalidEndpoint
 	}
 	body, err := c.http.Get(ctx, c.endpoint)
 	if err != nil {
@@ -82,10 +78,7 @@ func decode(body []byte, now time.Time) (status.Snapshot, error) {
 		return status.Snapshot{}, errors.New("status summary has too many entities")
 	}
 
-	snapshot := status.Snapshot{
-		Components: map[string]bool{"overall": true},
-		Incidents:  make(map[string]int),
-	}
+	snapshot := status.NewSnapshot(true)
 	seen := make(map[string]struct{}, len(events))
 	for _, event := range events {
 		state := strings.ToLower(event.State)
@@ -128,19 +121,15 @@ func decode(body []byte, now time.Time) (status.Snapshot, error) {
 }
 
 func addIncident(snapshot *status.Snapshot, event rawEvent, seen map[string]struct{}) error {
-	snapshot.Components["overall"] = false
-	severity := normalizeSeverity(event.Severity)
-	snapshot.Incidents[severity]++
-
+	snapshot.Components[status.Overall] = false
 	// A reference is remote text. Only an already safe one reaches a log field.
-	if !entityID.MatchString(event.ReferenceID) {
-		return nil
+	if status.SafeID.MatchString(event.ReferenceID) {
+		if _, exists := seen[event.ReferenceID]; exists {
+			return errors.New("duplicate status summary entity")
+		}
+		seen[event.ReferenceID] = struct{}{}
 	}
-	if _, exists := seen[event.ReferenceID]; exists {
-		return errors.New("duplicate status summary entity")
-	}
-	seen[event.ReferenceID] = struct{}{}
-	snapshot.Details = append(snapshot.Details, status.Incident{ID: event.ReferenceID, State: "active", Severity: severity})
+	snapshot.AddIncident(event.ReferenceID, "active", normalizeSeverity(event.Severity))
 	return nil
 }
 
@@ -148,7 +137,7 @@ func addIncident(snapshot *status.Snapshot, event rawEvent, seen map[string]stru
 // both before and during the work, and only the start date separates the two.
 func addMaintenance(snapshot *status.Snapshot, event rawEvent, now time.Time) error {
 	if event.StartDate == "" {
-		snapshot.MaintenanceScheduled++
+		snapshot.AddScheduledMaintenance(time.Time{})
 		return nil
 	}
 	start, err := time.Parse(time.RFC3339, event.StartDate)
@@ -159,10 +148,7 @@ func addMaintenance(snapshot *status.Snapshot, event rawEvent, now time.Time) er
 		snapshot.MaintenanceActive++
 		return nil
 	}
-	snapshot.MaintenanceScheduled++
-	if snapshot.NextMaintenance.IsZero() || start.Before(snapshot.NextMaintenance) {
-		snapshot.NextMaintenance = start
-	}
+	snapshot.AddScheduledMaintenance(start)
 	return nil
 }
 
@@ -184,16 +170,4 @@ func normalizeSeverity(value *string) string {
 	default:
 		return "unknown"
 	}
-}
-
-func endpoint(baseURL, path string) (string, error) {
-	u, err := url.Parse(baseURL)
-	if err != nil || u.Scheme == "" || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return "", errors.New("invalid endpoint")
-	}
-	u.Path = strings.TrimRight(u.Path, "/") + path
-	u.RawPath = ""
-	u.RawQuery = ""
-	u.Fragment = ""
-	return u.String(), nil
 }

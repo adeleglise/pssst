@@ -8,8 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
@@ -20,8 +18,6 @@ import (
 const activeIncidentsPath = "/api/incident-messages/active"
 const maxIncidents = 256
 
-var entityID = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
-
 // Client retrieves Adyen's active incident list.
 type Client struct {
 	endpoint   string
@@ -30,7 +26,7 @@ type Client struct {
 }
 
 func New(baseURL string, headers map[string]string, timeout time.Duration) *Client {
-	endpoint, err := endpoint(baseURL, activeIncidentsPath)
+	endpoint, err := status.Endpoint(baseURL, activeIncidentsPath)
 	return &Client{
 		endpoint:   endpoint,
 		endpointOK: err == nil,
@@ -40,7 +36,7 @@ func New(baseURL string, headers map[string]string, timeout time.Duration) *Clie
 
 func (c *Client) Fetch(ctx context.Context) (status.Snapshot, error) {
 	if !c.endpointOK {
-		return status.Snapshot{}, errors.New("invalid status page endpoint")
+		return status.Snapshot{}, status.ErrInvalidEndpoint
 	}
 	body, err := c.http.Get(ctx, c.endpoint)
 	if err != nil {
@@ -73,30 +69,23 @@ func decode(body []byte) (status.Snapshot, error) {
 		return status.Snapshot{}, errors.New("status summary has too many entities")
 	}
 
-	snapshot := status.Snapshot{
-		Components: map[string]bool{"overall": len(items) == 0},
-		Incidents:  make(map[string]int),
-	}
+	snapshot := status.NewSnapshot(len(items) == 0)
 	seen := make(map[string]struct{}, len(items))
 	for _, incident := range items {
-		severity := normalizeSeverity(incident.Severity)
-		snapshot.Incidents[severity]++
-
 		// Adyen labels incidents with free prose. Only an identifier that is
-		// already safe may reach a log field; otherwise the incident is counted
+		// already safe reaches a log field; otherwise the incident is counted
 		// without any detail rather than carrying remote text.
 		id := incident.Sys.ID
 		if id == "" {
 			id = incident.ID
 		}
-		if !entityID.MatchString(id) {
-			continue
+		if status.SafeID.MatchString(id) {
+			if _, exists := seen[id]; exists {
+				return status.Snapshot{}, errors.New("duplicate status summary entity")
+			}
+			seen[id] = struct{}{}
 		}
-		if _, exists := seen[id]; exists {
-			return status.Snapshot{}, errors.New("duplicate status summary entity")
-		}
-		seen[id] = struct{}{}
-		snapshot.Details = append(snapshot.Details, status.Incident{ID: id, State: "active", Severity: severity})
+		snapshot.AddIncident(id, "active", normalizeSeverity(incident.Severity))
 	}
 	return snapshot, nil
 }
@@ -116,16 +105,4 @@ func normalizeSeverity(value string) string {
 	default:
 		return "unknown"
 	}
-}
-
-func endpoint(baseURL, path string) (string, error) {
-	u, err := url.Parse(baseURL)
-	if err != nil || u.Scheme == "" || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return "", errors.New("invalid endpoint")
-	}
-	u.Path = strings.TrimRight(u.Path, "/") + path
-	u.RawPath = ""
-	u.RawQuery = ""
-	u.Fragment = ""
-	return u.String(), nil
 }
