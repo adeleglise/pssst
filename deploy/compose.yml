@@ -1,0 +1,68 @@
+# PSSST next to an existing Prometheus running in Docker. It carries only the
+# exporter and its own Blackbox instance; Prometheus scrapes the exporter and
+# owns retention, rules and alerting.
+#
+#   Prometheus ──scrape──> pssst:9099 ──/probe──> pssst-blackbox:9115
+#                              │                        │
+#                              └──status pages          └──PSP endpoints
+#
+# Both services join the network Prometheus already runs on, named by
+# PROMETHEUS_NETWORK, and publish no port: Prometheus reaches the exporter as
+# pssst:9099.
+#
+# The images are built from this checkout on every deployment (pull_policy:
+# build) and carry its deploy/pssst.psp.yml and deploy/blackbox/blackbox.yml.
+# Edit the inventory in your fork, commit, redeploy. That makes the file usable
+# as a GitOps stack (Portainer "Repository" stacks, for one) that redeploys on
+# each new commit.
+#
+#   PROMETHEUS_NETWORK=monitoring PSSST_VERSION=1.1.0 docker compose -f deploy/compose.yml up -d
+#
+# PSSST_VERSION is what psp_exporter_build_info reports; the build context has
+# no .git to derive it from.
+name: pssst
+
+services:
+  pssst:
+    image: localhost/pssst-bundled:latest
+    build:
+      context: ..
+      target: exporter-bundled
+      args:
+        VERSION: ${PSSST_VERSION:-dev}
+    pull_policy: build
+    restart: unless-stopped
+    depends_on:
+      - pssst-blackbox
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 15s
+    networks: [prometheus]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  pssst-blackbox:
+    image: localhost/pssst-blackbox-bundled:latest
+    build:
+      context: ..
+      target: blackbox-bundled
+    pull_policy: build
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [prometheus]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  prometheus:
+    external: true
+    name: ${PROMETHEUS_NETWORK:?set PROMETHEUS_NETWORK to the Docker network your Prometheus runs on}

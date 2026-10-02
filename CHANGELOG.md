@@ -19,6 +19,15 @@ publishes the section matching the tag as the release notes.
 
 ### Added
 
+- The MIT license.
+- The exporter image is published to `ghcr.io/adeleglise/pssst` for
+  linux/amd64 and linux/arm64: `edge` from `main`, `X.Y.Z`, `X.Y` and
+  `latest` from release tags.
+- `deploy/datadog/openmetrics.yaml`, the Datadog check for agents outside
+  Kubernetes, kept identical to the pod annotation by a test.
+- `deploy/compose.yml` runs PSSST next to any Prometheus in Docker, on the
+  network named by `PROMETHEUS_NETWORK`, building from the checkout so a fork
+  can deploy its own inventory as a GitOps stack.
 - `psp_status_source_fresh{psp}` and `psp_probe_fresh{psp,endpoint}`: the
   rules' freshness test, computed per signal at scrape time.
 - `pssst-check -config <inventory>` audits every declared source of an
@@ -39,9 +48,19 @@ publishes the section matching the tag as the release notes.
 - The README and `AGENTS.md` are rewritten around the provider inventory, how
   each adapter decides status, and Datadog cost.
 
+- The repository is public. The README documents installation, Kubernetes
+  (a remote kustomize base with an inventory overlay), Docker Compose,
+  Prometheus and Datadog for any deployment, and the kustomization pulls the
+  published image.
+- The Dockerfile targets `exporter-nas` and `blackbox-nas` are now
+  `exporter-bundled` and `blackbox-bundled`.
+
 ### Removed
 
 - The unused `internal/status/none` adapter. `none` has no adapter by design.
+- `deploy/compose.nas.yml`, replaced by `deploy/compose.yml`, and the
+  documentation of one private deployment: its operating procedure, its
+  validation record and its planning notes.
 
 ## [1.0.0] - 2026-09-21
 

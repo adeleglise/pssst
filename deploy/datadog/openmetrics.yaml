@@ -1,0 +1,25 @@
+# Datadog Agent check for PSSST outside Kubernetes. Save it as
+# conf.d/openmetrics.d/pssst.yaml on the agent (or mount it there in the agent
+# container), set openmetrics_endpoint to where the agent reaches the exporter,
+# and restart the agent. On Kubernetes, the pod annotation in
+# deploy/kubernetes/deployment.yaml carries the same check.
+#
+# Custom metrics are billed per series, so the list is explicit and minimal:
+# about 300 series for the shipped inventory. The *_fresh gauges tell a current
+# value from a last known good one, which Datadog cannot do from timestamps.
+# tag_by_endpoint is off so the scrape URL does not become a tag.
+init_config: {}
+
+instances:
+  - openmetrics_endpoint: http://pssst:9099/metrics
+    namespace: pssst
+    tag_by_endpoint: false
+    max_returned_metrics: 10000
+    metrics:
+      - psp_exporter_build_info
+      - psp_status_source_fresh
+      - psp_declared_operational
+      - psp_active_incidents
+      - psp_maintenance_active
+      - psp_probe_fresh
+      - psp_probe_success

@@ -100,38 +100,36 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 | `internal/collector/` | Reads the cache. **Never does I/O.** |
 | `internal/scheduler/` | One non-overlapping jittered loop per signal. |
 | `internal/httpclient/` | Bounded GET: timeouts, size cap, no redirects, sanitized errors. |
-| `cmd/pssst-check/` | Operator tool: resolve one source, print the snapshot. |
-| `deploy/` | Inventory, rules, compose, Kubernetes, generated dashboard. |
-| `.github/workflows/` | `ci.yml`: every check plus the smoke test. `release.yml`: a tag becomes a release. |
+| `cmd/pssst-check/` | Operator tool: resolve one source, or audit a whole inventory. |
+| `deploy/` | Default inventory, kustomize base, Blackbox modules, Prometheus rules, Datadog check, compose stack, generated dashboard. |
+| `compose.yaml`, `examples/` | The offline demo and its configuration. |
+| `.github/workflows/` | `ci.yml`: every check plus the smoke test. `image.yml`: the GHCR image. `release.yml`: a tag becomes a release. |
 | `CHANGELOG.md` | One section per version; the release workflow publishes it as notes. |
-| `docs/validation.md` | Evidence gathered for the last release. |
-| `docs/specification.md` | The original brief, unmodified. |
+| `docs/adr/` | Design decisions. |
 
 ## Repository and releases
 
-`origin` is `github.com/adeleglise/pssst`, private and canonical; the module
-path matches it. `gitea` is a mirror: push `main` and every tag there too.
+`github.com/adeleglise/pssst` is public and canonical; the module path matches
+it. Changes reach `main` through a pull request whose CI is green, `verify`
+and `smoke` both. CI takes Go from `go.mod`; the Dockerfile pins its own
+`golang` builder image, so the two move together. staticcheck and govulncheck
+are pinned in `go.mod` as tools. Dependabot proposes updates weekly.
 
-Changes reach `main` through a pull request whose CI is green, `verify` and
-`smoke` both, after a review by someone who did not write the change. CI takes
-Go from `go.mod`; the Dockerfile pins its own `golang` builder image, so the
-two move together. staticcheck and govulncheck are pinned in `go.mod` as tools.
-Dependabot proposes updates weekly.
+Every push to `main` publishes `ghcr.io/adeleglise/pssst:edge`. A release, in
+order:
 
-A release, in order:
-
-1. Add a `## [X.Y.Z] - YYYY-MM-DD` section to `CHANGELOG.md` and record the
-   evidence in `docs/validation.md`. Merge.
-2. Tag `main`: `git tag -a vX.Y.Z -m vX.Y.Z`, then push the tag to `origin`
-   and `gitea`.
+1. Move the `[Unreleased]` entries of `CHANGELOG.md` under a
+   `## [X.Y.Z] - YYYY-MM-DD` section, and point the README's pinned versions
+   (kustomize `ref` and image tag) at it. Merge.
+2. Tag `main`: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
 3. The release workflow reruns `fmt-check lint vuln test test-race` and the
    rule tests, builds the binaries with `make dist` and publishes them with
-   `SHA256SUMS`. It fails when the changelog has no section for the tag.
+   `SHA256SUMS`; it fails when the changelog has no section for the tag. The
+   image workflow publishes `X.Y.Z`, `X.Y` and `latest`.
 
 The exported version drops the `v`: tag `v1.0.0` reports `1.0.0` in
-`psp_exporter_build_info`, like the untagged 0.x builds did. `make dist` is
-reproducible: on a clean checkout of a tag, with the Go version in `go.mod`,
-it gives the published checksums.
+`psp_exporter_build_info`. `make dist` is reproducible: on a clean checkout of
+a tag, with the Go version in `go.mod`, it gives the published checksums.
 
 ## Adding an adapter
 
@@ -259,56 +257,24 @@ search mode reads it and waits: a scripted `rg -l` hung this way. Always pass
 a path. `rg --files` does not read stdin. The `ubuntu-latest` runner does not
 ship ripgrep, so the workflows install it.
 
-**The committed stack drifted from the deployed one.** `compose.nas.yml`
-described config mounts, a published port and no shared network, while the
-NAS ran images carrying their config on `monitoring_default`. Diff the live
-stack file against the repository before every deployment.
+**The committed stack drifted from the deployed one.** The committed compose
+file described config mounts, a published port and no shared network, while
+the running stack used images carrying their config on Prometheus's network.
+`deploy/compose.yml` is now deployed from the repository itself, so the
+committed file is the deployed one; never edit a copy by hand.
 
-## Operating on the real infrastructure
+## Operating a deployment
 
-Production is read-only until explicitly authorized for that exact action.
-Before editing a live Prometheus configuration: back it up, validate the
-candidate with `promtool check config` from the directory holding the rule
-files so relative paths resolve, then reload. Verify the target is `up` and the
-rules are `ok` afterwards, through the API, not by assumption.
+Treat a production deployment as read-only until its owner authorizes that
+exact action. Before changing the rules of a live Prometheus: back up the rule
+file, validate the candidate with `promtool check config` from the directory
+holding the rule files so relative paths resolve, then reload. Verify through
+the API afterwards, never by assumption: the target is `up`, every pssst rule
+is `ok`, `psp_exporter_build_info` reports the version you shipped, and
+`count(psp_status_source_fresh == 1)` and `count(psp_probe_fresh == 1)` match
+the inventory's declared sources and probes.
 
-Never publish a port that does not need publishing. The exporter joins the
-network its Prometheus already runs on and is reached by service name.
-
-### The NAS
-
-```text
-Portainer  https://192.168.1.250:19943   endpoint 2, stack 56 "pssst"
-Prometheus http://192.168.1.250:9090     3.11.3, stack "monitoring", reload enabled
-Rules      nas-signoz/prometheus/pssst.rules.yml, relative in rule_files,
-           reachable over NFS at /Volumes/repos-nas/misc/projects/nas-signoz
-Token      macOS keychain, service portainer-api-token; never in a file
-```
-
-No registry serves the images: they are built on a workstation and loaded.
-Deploying version X.Y.Z, from a clean checkout of its tag:
-
-1. Build both images for the NAS architecture. The Dockerfile cross-compiles,
-   so nothing is emulated:
-   `podman build --platform linux/amd64 --target exporter-nas --build-arg VERSION=X.Y.Z -t localhost/pssst-nas:X.Y.Z .`
-   and the same with `--target blackbox-nas -t localhost/pssst-blackbox-nas:X.Y.Z`.
-2. Check the result: `podman run --rm localhost/pssst-nas:X.Y.Z -version`
-   prints `X.Y.Z`, and `/etc/pssst/config.yml` copied out of the image equals
-   the tag's `deploy/pssst.psp.yml`.
-3. Load both into the NAS engine: `podman save --format docker-archive -m`
-   into a tar, then `POST /api/endpoints/2/docker/images/load` on Portainer.
-   The image IDs on the NAS must match the local ones.
-4. Save the live stack file (`GET /api/stacks/56/file`), diff it against
-   `deploy/compose.nas.yml`, then `PUT /api/stacks/56?endpointId=2` with that
-   file and `pullImage: false`, since the images are local.
-5. For rules: copy the Prometheus directory aside, drop the candidate in as
-   `pssst.rules.yml`, and run `promtool check config` there with the promtool
-   of the production version. Then back up the live file as
-   `pssst.rules.yml.bak.<epoch>`, replace it and `POST /-/reload`.
-6. Verify through the API: `psp_exporter_build_info` reports `X.Y.Z`, every
-   configured source and probe is up, all pssst rules are `ok`. A reload keeps
-   alert state, but a redeployed exporter starts with an empty cache, so every
-   `for` timer restarts: maintenance alerts reappear after fifteen minutes.
-
-Rollback: the previous images stay on the NAS; restore the saved stack file
-and the rules backup, then reload.
+A redeployed exporter starts with an empty cache, so every `for` timer
+restarts: maintenance alerts reappear after fifteen minutes. Never publish a
+port that does not need publishing; the exporter joins its Prometheus's
+network and is reached by service name.

@@ -4,7 +4,8 @@ kind: Kustomization
 # The kustomization sits here, not under kubernetes/, because kustomize refuses
 # to read files outside its own directory. That constraint is welcome: the
 # inventory stays the single source of truth and is generated into a ConfigMap
-# rather than copied, so the cluster and the compose stack cannot drift apart.
+# rather than copied. An overlay replaces it with its own inventory; see the
+# README.
 #
 # The generated names carry a content hash, so changing the inventory rolls the
 # pods instead of leaving them on a stale mount.
@@ -16,11 +17,12 @@ configMapGenerator:
     files:
       - blackbox.yml=blackbox/blackbox.yml
 
-# No registry is published for this image. Point newName at the one the
-# cluster pulls from; the tag follows the release.
+# Published by the image workflow for linux/amd64 and linux/arm64. Pin a
+# release tag in production; "edge" follows main.
 images:
   - name: pssst
-    newTag: 1.0.0
+    newName: ghcr.io/adeleglise/pssst
+    newTag: edge
 
 resources:
   - kubernetes/deployment.yaml
