@@ -20,6 +20,7 @@ package kener
 import (
 	"context"
 	"errors"
+	"maps"
 	"strings"
 	"time"
 
@@ -47,22 +48,18 @@ type Client struct {
 }
 
 func New(baseURL string, headers map[string]string, monitors map[string]string, timeout time.Duration) *Client {
-	endpoint, err := normalize(baseURL)
-	mapping := make(map[string]string, len(monitors))
-	for alias, name := range monitors {
-		mapping[alias] = name
-	}
+	endpoint, err := status.Endpoint(baseURL, "/")
 	return &Client{
 		endpoint:   endpoint,
 		endpointOK: err == nil,
 		http:       httpclient.New(timeout, headers),
-		mapping:    mapping,
+		mapping:    maps.Clone(monitors),
 	}
 }
 
 func (c *Client) Fetch(ctx context.Context) (status.Snapshot, error) {
 	if !c.endpointOK {
-		return status.Snapshot{}, errors.New("invalid status page endpoint")
+		return status.Snapshot{}, status.ErrInvalidEndpoint
 	}
 	body, err := c.http.Get(ctx, c.endpoint)
 	if err != nil {
@@ -109,25 +106,10 @@ func decode(body []byte, mappings map[string]string) (status.Snapshot, error) {
 		return status.Snapshot{}, errors.New("status page has no monitor")
 	}
 
-	snapshot := status.Snapshot{
-		Components: map[string]bool{"overall": true},
-		Incidents:  make(map[string]int),
-	}
 	// Kener publishes no page-level rollup, so the monitors are the rollup.
-	for _, state := range states {
-		if state != stateUp {
-			snapshot.Components["overall"] = false
-		}
-	}
-	for alias, name := range mappings {
-		if alias == "" || alias == "overall" || name == "" {
-			return status.Snapshot{}, errors.New("invalid configured component")
-		}
-		state, found := states[name]
-		if !found {
-			return status.Snapshot{}, errors.New("configured component missing from status page")
-		}
-		snapshot.Components[alias] = state == stateUp
+	snapshot := status.NewSnapshot(true)
+	if err := snapshot.ResolveComponents(states, mappings, func(state string) bool { return state == stateUp }); err != nil {
+		return status.Snapshot{}, err
 	}
 	return snapshot, nil
 }
@@ -206,11 +188,4 @@ func text(node *html.Node) string {
 	}
 	walk(node)
 	return b.String()
-}
-
-func normalize(baseURL string) (string, error) {
-	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-		return "", errors.New("invalid endpoint")
-	}
-	return strings.TrimRight(baseURL, "/") + "/", nil
 }

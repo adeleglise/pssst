@@ -1,6 +1,9 @@
 package collector
 
 import (
+	"bytes"
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +14,7 @@ import (
 	"github.com/adeleglise/pssst/internal/status"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"go.yaml.in/yaml/v3"
 )
 
 func TestCollectorSeparatesUnknownAndFailedSignals(t *testing.T) {
@@ -122,7 +126,7 @@ func TestCountersAreCumulativeAndTyped(t *testing.T) {
 	cfg := config.Config{PSPs: []config.PSP{{
 		ID:     "demo",
 		Kind:   config.KindPSP,
-		Status: config.Status{Type: config.StatusTypeStatuspageV2, BaseURL: "https://status.example.test"},
+		Status: config.Status{Type: "statuspage_v2", BaseURL: "https://status.example.test"},
 		Probes: []config.Probe{{ID: "api", Module: "http_2xx", Target: "https://api.example.test/"}},
 	}}}
 	c := cache.New(cfg)
@@ -187,6 +191,114 @@ func TestCountersAreCumulativeAndTyped(t *testing.T) {
 		}
 		if len(counters[name]) != 2 {
 			t.Errorf("%s has %d outcome values, want exactly 2", name, len(counters[name]))
+		}
+	}
+}
+
+// Freshness is judged per signal with the rules' own test: never succeeded is
+// not fresh, a failed poll inside the window is still fresh, and a success
+// older than stale_after is not.
+func TestFreshnessMirrorsTheRules(t *testing.T) {
+	cfg := config.Config{
+		Polling: config.Polling{StatusInterval: time.Minute, ProbeInterval: time.Minute, Timeout: 10 * time.Second},
+		PSPs: []config.PSP{{
+			ID:     "demo",
+			Status: config.Status{Type: "statuspage_v2"},
+			Probes: []config.Probe{{ID: "api"}},
+		}},
+	}
+	c := cache.New(cfg)
+	collector := New(c, "test")
+	reg := prometheus.NewPedanticRegistry()
+	reg.MustRegister(collector)
+	start := time.Unix(1789000000, 0)
+	staleAfter := 3 * (time.Minute + 10*time.Second)
+
+	check := func(at time.Time, status, probe string) {
+		t.Helper()
+		collector.now = func() time.Time { return at }
+		want := `# HELP psp_probe_fresh Whether the last valid Blackbox response is younger than stale_after.
+# TYPE psp_probe_fresh gauge
+psp_probe_fresh{endpoint="api",psp="demo"} ` + probe + `
+# HELP psp_status_source_fresh Whether the last valid status snapshot is younger than stale_after.
+# TYPE psp_status_source_fresh gauge
+psp_status_source_fresh{psp="demo"} ` + status + `
+`
+		if err := testutil.GatherAndCompare(reg, strings.NewReader(want), "psp_status_source_fresh", "psp_probe_fresh"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	check(start, "0", "0")
+
+	if err := c.UpdateStatus("demo", status.NewSnapshot(true), true, start); err != nil {
+		t.Fatal(err)
+	}
+	// A collected failing probe is a fresh observation of a failure.
+	if err := c.UpdateProbe("demo", "api", blackbox.Result{Success: false}, true, start); err != nil {
+		t.Fatal(err)
+	}
+	check(start, "1", "1")
+
+	// Failed attempts do not end freshness; only age does.
+	if err := c.UpdateStatus("demo", status.Snapshot{}, false, start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.UpdateProbe("demo", "api", blackbox.Result{}, false, start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	check(start.Add(staleAfter), "1", "1")
+	check(start.Add(staleAfter+time.Second), "0", "0")
+}
+
+// The Datadog list is explicit to control cost, and the OpenMetrics check
+// silently ignores a name it never sees. Every listed name must be a metric
+// this exporter defines, a counter without its _total suffix.
+func TestDatadogListNamesRealMetrics(t *testing.T) {
+	raw, err := os.ReadFile("../../deploy/kubernetes/deployment.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var deployment struct {
+		Spec struct {
+			Template struct {
+				Metadata struct {
+					Annotations map[string]string `yaml:"annotations"`
+				} `yaml:"metadata"`
+			} `yaml:"template"`
+		} `yaml:"spec"`
+	}
+	// The file holds several documents; the Deployment is the first.
+	if err := yaml.NewDecoder(bytes.NewReader(raw)).Decode(&deployment); err != nil {
+		t.Fatal(err)
+	}
+	var check struct {
+		OpenMetrics struct {
+			Instances []struct {
+				Metrics []string `json:"metrics"`
+			} `json:"instances"`
+		} `json:"openmetrics"`
+	}
+	if err := json.Unmarshal([]byte(deployment.Spec.Template.Metadata.Annotations["ad.datadoghq.com/pssst.checks"]), &check); err != nil {
+		t.Fatal(err)
+	}
+	if len(check.OpenMetrics.Instances) != 1 || len(check.OpenMetrics.Instances[0].Metrics) == 0 {
+		t.Fatal("expected one instance with an explicit metric list")
+	}
+
+	defined := map[string]bool{}
+	for _, d := range definitions {
+		defined["psp_"+strings.TrimSuffix(d.name, "_total")] = true
+		if d.kind == counter && !strings.HasSuffix(d.name, "_total") {
+			t.Errorf("counter %s must end in _total", d.name)
+		}
+	}
+	for _, name := range check.OpenMetrics.Instances[0].Metrics {
+		if strings.HasSuffix(name, "_total") {
+			t.Errorf("%s: list counters without _total, the check skips the suffixed name", name)
+		}
+		if !defined[name] {
+			t.Errorf("%s is not a metric this exporter defines", name)
 		}
 	}
 }

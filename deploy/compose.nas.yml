@@ -9,18 +9,30 @@
 # Both services join monitoring_default, the network that Prometheus runs on,
 # and publish no port: Prometheus reaches the exporter by service name.
 #
-# The images carry their configuration (Dockerfile targets exporter-nas and
-# blackbox-nas), so the stack needs no bind mount and an inventory change
-# ships as a new image tag. No registry serves them: they are built on a
-# workstation and loaded into the NAS engine, see "The NAS" in AGENTS.md.
+# Deployed as a Portainer Git repository stack with this file as its compose
+# path. Portainer clones the branch and the images are built from it on every
+# deployment (pull_policy: build), so "Pull and redeploy", or automatic updates
+# polling the branch, always runs the latest commit. The images carry their
+# configuration: an inventory change is a commit, never a file edited on the
+# host. Portainer setup: Stacks > Add stack > Repository, this repository with
+# a read-only token, reference refs/heads/main, compose path
+# deploy/compose.nas.yml, GitOps updates on. Remove any previous "pssst" stack
+# first: the project name is the same.
 #
-#   podman build --platform linux/amd64 --target exporter-nas --build-arg VERSION=1.0.0 -t localhost/pssst-nas:1.0.0 .
-#   podman build --platform linux/amd64 --target blackbox-nas -t localhost/pssst-blackbox-nas:1.0.0 .
+# PSSST_VERSION, set in the stack's environment variables, is what
+# psp_exporter_build_info reports. The build context has no .git, so it
+# cannot be derived from the checkout.
 name: pssst
 
 services:
   pssst:
-    image: ${PSSST_IMAGE:-localhost/pssst-nas:1.0.0}
+    image: localhost/pssst-nas:latest
+    build:
+      context: ..
+      target: exporter-nas
+      args:
+        VERSION: ${PSSST_VERSION:-dev}
+    pull_policy: build
     restart: unless-stopped
     depends_on:
       - pssst-blackbox
@@ -36,7 +48,11 @@ services:
         max-file: "3"
 
   pssst-blackbox:
-    image: ${PSSST_BLACKBOX_IMAGE:-localhost/pssst-blackbox-nas:1.0.0}
+    image: localhost/pssst-blackbox-nas:latest
+    build:
+      context: ..
+      target: blackbox-nas
+    pull_policy: build
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]

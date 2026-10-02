@@ -21,11 +21,15 @@ spec:
         app.kubernetes.io/name: pssst
         app.kubernetes.io/component: exporter
       annotations:
-        # Datadog Autodiscovery. The metric list is explicit on purpose: custom
-        # metrics are billed per series, and "*" would ship every future series
-        # this exporter ever adds without anyone deciding to. Counters are listed
-        # without "_total", as the OpenMetrics check requires since Agent 7.32;
-        # they reach Datadog as pssst.psp_status_poll.count and so on.
+        # Datadog Autodiscovery. Custom metrics are billed per series, so the
+        # list is explicit and minimal: what a monitor needs to tell declared
+        # from observed status, about 300 series for the shipped inventory
+        # instead of about 1000 for everything. The *_fresh gauges stand in for
+        # the timestamps and thresholds, which Datadog cannot compare with the
+        # current time. Opt-in extras and their cost are in the README.
+        # tag_by_endpoint is off: by default the check tags every series with
+        # its scrape URL, which carries the pod IP (a new set of series on each
+        # reschedule) and collides with PSSST's own endpoint label.
         ad.datadoghq.com/pssst.checks: |
           {
             "openmetrics": {
@@ -34,33 +38,16 @@ spec:
                 {
                   "openmetrics_endpoint": "http://%%host%%:9099/metrics",
                   "namespace": "pssst",
+                  "tag_by_endpoint": false,
                   "max_returned_metrics": 10000,
-                  "collect_counters_with_distributions": false,
                   "metrics": [
-                    "psp_info",
                     "psp_exporter_build_info",
-                    "psp_status_source_configured",
-                    "psp_status_source_up",
-                    "psp_status_source_last_success_timestamp_seconds",
-                    "psp_status_source_last_poll_timestamp_seconds",
-                    "psp_status_source_stale_after_seconds",
+                    "psp_status_source_fresh",
                     "psp_declared_operational",
                     "psp_active_incidents",
                     "psp_maintenance_active",
-                    "psp_maintenance_scheduled",
-                    "psp_maintenance_next_start_timestamp_seconds",
-                    "psp_probe_collection_up",
-                    "psp_probe_success",
-                    "psp_probe_duration_seconds",
-                    "psp_probe_http_status_code",
-                    "psp_probe_ssl_earliest_cert_expiry_timestamp_seconds",
-                    "psp_probe_last_poll_timestamp_seconds",
-                    "psp_probe_last_success_timestamp_seconds",
-                    "psp_probe_last_collection_success_timestamp_seconds",
-                    "psp_probe_stale_after_seconds",
-                    "psp_status_poll",
-                    "psp_probe_collection",
-                    "psp_probe_result"
+                    "psp_probe_fresh",
+                    "psp_probe_success"
                   ]
                 }
               ]
