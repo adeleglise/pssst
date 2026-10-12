@@ -35,7 +35,7 @@ CMD ["-config", "/etc/pssst/config.yml"]
 FROM exporter AS exporter-bundled
 COPY deploy/pssst.psp.yml /etc/pssst/config.yml
 
-FROM quay.io/prometheus/blackbox-exporter:v0.28.0 AS blackbox-bundled
+FROM quay.io/prometheus/blackbox-exporter:v0.29.0 AS blackbox-bundled
 COPY deploy/blackbox/blackbox.yml /etc/blackbox/blackbox.yml
 ENTRYPOINT ["/bin/blackbox_exporter"]
 CMD ["--config.file=/etc/blackbox/blackbox.yml"]
