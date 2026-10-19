@@ -1,6 +1,6 @@
 # The compiler runs on the build host and cross-compiles, so building an amd64
 # image from an arm64 workstation needs no emulation.
-FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.1-alpine AS build
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.2-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -35,7 +35,7 @@ CMD ["-config", "/etc/pssst/config.yml"]
 FROM exporter AS exporter-bundled
 COPY deploy/pssst.psp.yml /etc/pssst/config.yml
 
-FROM quay.io/prometheus/blackbox-exporter:v0.28.0 AS blackbox-bundled
+FROM quay.io/prometheus/blackbox-exporter:v0.29.0 AS blackbox-bundled
 COPY deploy/blackbox/blackbox.yml /etc/blackbox/blackbox.yml
 ENTRYPOINT ["/bin/blackbox_exporter"]
 CMD ["--config.file=/etc/blackbox/blackbox.yml"]
