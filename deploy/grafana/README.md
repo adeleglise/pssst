@@ -34,8 +34,9 @@ curl -X POST -H 'Content-Type: application/json' --data-binary @pssst-v2.json \
 ## List it on grafana.com
 
 Sign in at grafana.com, open My Account → Dashboards → Upload, and upload
-`pssst-grafana-com.json`. Use `brand/png/icon-256.png` as its logo and a
-screenshot of the overview rows. Upload a new revision after every change to
+`pssst-grafana-com.json`. Use `brand/png/icon-256.png` as its logo and
+`docs/media/grafana-overview.png`, captured by `scripts/capture-dashboard.sh`,
+as its screenshot. Upload a new revision after every change to
 the generator; the listing does not follow the repository.
 
 ## What it shows

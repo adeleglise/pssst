@@ -104,6 +104,7 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 | `cmd/pssst-check/` | Operator tool: resolve one source, or audit a whole inventory. |
 | `deploy/` | Default inventory, kustomize base, Blackbox modules, Prometheus rules, Datadog check, compose stack, generated dashboards. |
 | `deploy/helm/pssst/` | Helm chart: the kustomize base again, under the same names. `deploy/deploy_test.go` renders both and fails on any difference. |
+| `scripts/capture-dashboard.sh`, `scripts/capture/` | Captures the README's dashboard screenshot from the demo stack plus three more fictional providers and a Grafana. |
 | `brand/` | SVG sources of the icon, banner and social preview. `scripts/build-brand.sh` renders `brand/png/`. |
 | `compose.yaml`, `examples/` | The offline demo and its configuration. |
 | `.github/workflows/` | `ci.yml`: every check plus the smoke test. `image.yml`: the GHCR image. `release.yml`: a tag becomes a release. |
@@ -121,6 +122,10 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 - **The dashboard generator and both dashboards.** `make dashboards` after any
   change to `build_dashboard.py`; a new French string needs its English entry
   in `EN` or the build fails. Re-upload the grafana.com listing after a change.
+- **The dashboard and its screenshot.** `docs/media/grafana-overview.png` is
+  captured by `scripts/capture-dashboard.sh` from four fictional providers,
+  never by hand and never from real data. Recapture it after a change to the
+  overview rows.
 - **Brand sources and renders.** Edit the SVG, run `scripts/build-brand.sh`,
   commit both.
 - **What PSSST reads and sends.** Written in the README's security section and

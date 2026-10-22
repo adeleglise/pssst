@@ -1,0 +1,64 @@
+# Inventory of the dashboard capture: four fictional providers, one per case
+# worth showing. Never put a real provider here; the screenshot shows them
+# failing.
+server:
+  listen_address: ":9099"
+
+polling:
+  status_interval: 3s
+  probe_interval: 3s
+  timeout: 2s
+  jitter: 0s
+
+blackbox:
+  base_url: "http://blackbox_exporter:9115"
+
+psps:
+  - id: northwind_pay          # healthy
+    display_name: Northwind Pay
+    status:
+      type: statuspage_v2
+      base_url: "http://fake_psp:8080"
+      components:
+        payment_api: payment-api
+    probes:
+      - id: payment_api
+        module: http_2xx_fast
+        target: "http://fake_psp:8080/payment-api/health"
+
+  - id: contoso_acquiring      # unannounced failure
+    display_name: Contoso Acquiring
+    status:
+      type: statuspage_v2
+      base_url: "http://fake_contoso:8080"
+      components:
+        payment_api: payment-api
+    probes:
+      - id: payment_api
+        module: http_2xx_fast
+        target: "http://fake_contoso:8080/payment-api/health"
+
+  - id: fabrikam_bank          # confirmed incident
+    display_name: Fabrikam Bank
+    kind: bank
+    status:
+      type: statuspage_v2
+      base_url: "http://fake_fabrikam:8080"
+      components:
+        payment_api: payment-api
+    probes:
+      - id: payment_api
+        module: http_2xx_fast
+        target: "http://fake_fabrikam:8080/payment-api/health"
+
+  - id: tailspin_payments      # declared incident, API still answering
+    display_name: Tailspin Payments
+    status:
+      type: statuspage_v2
+      base_url: "http://fake_tailspin:8080"
+      components:
+        payment_api: payment-api
+    probes:
+      - id: payment_api
+        module: http_2xx_fast
+        target: "http://fake_tailspin:8080/payment-api/health"
