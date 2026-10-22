@@ -1,12 +1,12 @@
 module github.com/adeleglise/pssst
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/common v0.71.0
 	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 )
 
 require (

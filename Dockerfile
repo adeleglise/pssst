@@ -1,6 +1,6 @@
 # The compiler runs on the build host and cross-compiles, so building an amd64
 # image from an arm64 workstation needs no emulation.
-FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.1-alpine AS build
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.3-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

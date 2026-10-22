@@ -8,6 +8,9 @@ publishes the section matching the tag as the release notes.
 
 ### Fixed
 
+- Built with Go 1.27.3 and `golang.org/x/net` v0.60.0, which fix ten
+  vulnerabilities govulncheck found reachable from PSSST in `net/http`, its
+  HTTP/2 implementation, `crypto/tls`, `crypto/x509` and `mime/multipart`.
 - The dashboard's "PSP en panne observée" table labelled every provider in it
   "OK" in green: it lists `psp:observed_unavailable == 1`, where 1 means down,
   through a mapping that reads 1 as up. It now reads "EN PANNE".
