@@ -1,8 +1,41 @@
+![PSSST: know when a payment provider fails, even while its status page says all good](https://raw.githubusercontent.com/adeleglise/pssst/main/brand/png/banner.png)
+
 # PSSST
 
-**P**ayment **S**tatus **S**ignals & **S**urveillance **T**ool: a Prometheus
-exporter that tells you whether the payment providers you depend on are
-working, and whether they have said so.
+**Know when a payment provider fails, even while its status page says all
+good.** PSSST is a Prometheus exporter that reads what Stripe, Adyen, PayPal
+and 21 other European providers declare on their status pages, probes what
+their endpoints actually do, and keeps the two signals apart so the gap
+between them shows. No account and no SaaS: it runs next to your Prometheus
+and talks only to the providers' public pages and endpoints.
+
+<p align="center">
+  <a href="#deploy-with-helm">Helm</a> ·
+  <a href="#deploy-on-kubernetes">Kustomize</a> ·
+  <a href="#deploy-with-docker-compose">Docker</a> ·
+  <a href="https://github.com/adeleglise/pssst/releases">Binaries</a> ·
+  <a href="deploy/grafana/README.md">Grafana dashboard</a>
+</p>
+
+**Try it in two minutes, offline.** Docker or Podman, nothing else:
+
+```sh
+git clone https://github.com/adeleglise/pssst && cd pssst && docker compose up --build -d
+curl -X POST 'http://127.0.0.1:18080/control?api_failure=true'   # break the API, not the status page
+curl -s http://127.0.0.1:9099/metrics | grep '^psp_probe_success'
+```
+
+**Works with:** Prometheus · Grafana · Datadog · Kubernetes (Helm or
+kustomize) · Docker Compose. Reads Atlassian Statuspage, Instatus and Kener
+pages, and the Adyen, HiPay and PayPal status APIs.
+
+![The PSSST dashboard on four fictional providers: two observed down, one of them an unannounced failure](https://raw.githubusercontent.com/adeleglise/pssst/main/docs/media/grafana-overview.png)
+_The dashboard on the offline demo's fictional providers: Contoso fails while
+its status page says nothing, which is an unannounced failure; Fabrikam fails
+and says so._
+
+> PSSST is an independent open-source project. It is not affiliated with or
+> endorsed by any provider it monitors; their names belong to their owners.
 
 It reads two signals, on purpose, and never merges them:
 
@@ -33,6 +66,7 @@ your own is a few lines of YAML.
 - [Quick start](#quick-start)
 - [Install](#install)
 - [Configure your providers](#configure-your-providers)
+- [Deploy with Helm](#deploy-with-helm)
 - [Deploy on Kubernetes](#deploy-on-kubernetes)
 - [Deploy with Docker Compose](#deploy-with-docker-compose)
 - [Prometheus](#prometheus)
@@ -44,7 +78,9 @@ your own is a few lines of YAML.
 - [Operations](#operations)
 - [Development](#development)
 - [Known limits](#known-limits)
+- [Security and what it reads](#security-and-what-it-reads)
 - [License](#license)
+- [Support the project](#support-the-project)
 
 ## Quick start
 
@@ -182,6 +218,24 @@ Blackbox module timeout below `polling.timeout`.
 `http_api_reachable` measures reachability, not authorization: an API answering
 401 or 404 on its root is up. A transport failure, or a status outside the
 module's list (any 5xx, or a 429), is an observed failure.
+
+## Deploy with Helm
+
+The chart publishes with every release to `oci://ghcr.io/adeleglise/charts`
+and renders exactly the objects of the [kustomize base](#deploy-on-kubernetes)
+below, under the same names; a test fails when the two drift.
+
+```sh
+helm install pssst oci://ghcr.io/adeleglise/charts/pssst --version 1.1.0 \
+  --namespace monitoring --create-namespace \
+  --set-file inventory=inventory.yml
+```
+
+Without `inventory`, it runs the default inventory. Set `blackbox.base_url` in
+yours to `http://pssst-blackbox:9115`. The ServiceMonitor is off by default so
+the chart installs without the Prometheus Operator; turn it on with
+`--set serviceMonitor.enabled=true`. Every value is in
+[deploy/helm/pssst/README.md](deploy/helm/pssst/README.md).
 
 ## Deploy on Kubernetes
 
@@ -557,6 +611,34 @@ image.
   must stay below `polling.timeout`.
 - No NetworkPolicy ships with the Kubernetes manifests.
 
+## Security and what it reads
+
+PSSST sends nothing anywhere on its own initiative, and has no telemetry.
+
+- **Outbound requests**: a GET to each `status.base_url` in your inventory,
+  and to your Blackbox Exporter, which in turn probes each `probes[].target`.
+  Nothing else. Redirects are refused, responses are capped at 2 MiB, and
+  every request has a deadline.
+- **What it keeps**: the last snapshot of each source and probe, in memory.
+  It writes no file and holds no state across restarts.
+- **What it exposes**: `/metrics`, `/healthz` and `/readyz` on
+  `server.listen_address`. Labels come only from your configuration and
+  documented enums, never from remote text, so a status page cannot inject a
+  label or inflate cardinality.
+- **Credentials**: none are needed. Headers you configure can read from the
+  environment with `${NAME}`, so tokens stay out of the file.
+- **Container**: non-root, read-only root filesystem, no capabilities, no
+  service account token, built `FROM scratch`.
+
+Report a vulnerability privately, as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE).
+
+## Support the project
+
+PSSST is and stays free and MIT licensed. If it saves you an incident,
+[sponsoring the maintainer](https://github.com/sponsors/adeleglise) keeps the
+inventory checked against the live status pages. A star, a bug report or a
+provider added to the inventory helps as much.

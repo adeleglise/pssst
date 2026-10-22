@@ -1,0 +1,20 @@
+name: Add a provider to the inventory
+description: A payment provider, acquirer or bank PSSST should know about.
+labels: [inventory]
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: Provider
+    validations:
+      required: true
+  - type: input
+    id: status
+    attributes:
+      label: Status page URL, if you know one
+      description: Try status.<name>.com, then <name>.statuspage.io.
+  - type: input
+    id: api
+    attributes:
+      label: Public production API host to probe
+      description: A shared host, never one carrying a merchant or customer identifier.
