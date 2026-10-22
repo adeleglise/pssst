@@ -1,0 +1,58 @@
+# The chart renders the same objects as the kustomize base in deploy/, under
+# the same fixed names (pssst, pssst-blackbox), so the inventory's
+# blackbox.base_url is http://pssst-blackbox:9115 either way. Install it once
+# per namespace. deploy/deploy_test.go fails when the two drift apart.
+
+image:
+  repository: ghcr.io/adeleglise/pssst
+  # Empty means the chart's appVersion: X.Y.Z for a released chart.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Your inventory, as YAML text. Empty ships the default inventory of 24
+# European providers. Pass yours with:
+#   helm install pssst ... --set-file inventory=inventory.yml
+inventory: ""
+
+logLevel: info
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+blackbox:
+  image:
+    repository: quay.io/prometheus/blackbox-exporter
+    tag: v0.28.0
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 192Mi
+
+# For a cluster running the Prometheus Operator. Off by default so the chart
+# installs where the ServiceMonitor CRD does not exist. Without it, the pod's
+# prometheus.io/* annotations serve an annotation-based Prometheus.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+
+# Datadog Autodiscovery annotation. Custom metrics are billed per series, so
+# the list is explicit and minimal; the README lists opt-in extras and their
+# cost. A counter goes in without its _total suffix.
+datadog:
+  metrics:
+    - psp_exporter_build_info
+    - psp_status_source_fresh
+    - psp_declared_operational
+    - psp_active_incidents
+    - psp_maintenance_active
+    - psp_probe_fresh
+    - psp_probe_success

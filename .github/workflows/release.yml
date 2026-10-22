@@ -1,13 +1,14 @@
 name: Release
 
 # A version tag publishes a GitHub release: the Go checks and rule tests, then
-# the binaries from `make dist` and the matching CHANGELOG section as notes.
+# the binaries from `make dist` and the matching CHANGELOG section as notes,
+# then the Helm chart at the same version to oci://ghcr.io/<owner>/charts.
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   PROMETHEUS_IMAGE: quay.io/prometheus/prometheus:v3.14.0
@@ -15,6 +16,8 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -24,7 +27,12 @@ jobs:
           go-version-file: go.mod
       # fmt-check lists sources with ripgrep, absent from the runner image.
       - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ripgrep
-      - run: make fmt-check lint vuln test test-race
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+      - run: make fmt-check lint vuln test test-race chart-test
+        env:
+          PSSST_REQUIRE_DEPLOY_TOOLS: "1"
       - name: Validate Prometheus rules
         run: |
           docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace "$PROMETHEUS_IMAGE" check rules deploy/prometheus/pssst.yml
@@ -49,3 +57,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag dist/*
+
+  # Chart X.Y.Z deploys image X.Y.Z. The first push creates a private package
+  # on GHCR: make it public once in the package settings.
+  chart:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+      - name: Package and push
+        env:
+          TAG: ${{ github.ref_name }}
+          OWNER: ${{ github.repository_owner }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ github.token }}
+        run: |
+          version="${TAG#v}"
+          helm package deploy/helm/pssst --version "$version" --app-version "$version"
+          echo "$TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
+          helm push "pssst-$version.tgz" "oci://ghcr.io/${OWNER,,}/charts"

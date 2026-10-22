@@ -9,7 +9,7 @@ PLATFORMS ?= linux/amd64 linux/arm64 darwin/arm64
 # misleading version number.
 VERSION ?= $(or $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//'),dev)
 
-.PHONY: fmt fmt-check lint vuln test test-race build dist image up down rules-test smoke
+.PHONY: fmt fmt-check lint vuln test test-race build dist image up down rules-test smoke chart-sync chart-test dashboards
 
 fmt:
 	@command -v rg >/dev/null
@@ -67,3 +67,16 @@ rules-test:
 
 smoke:
 	RUNTIME=$(RUNTIME) ./scripts/smoke.sh
+
+# The chart ships copies of the inventory and the Blackbox modules, because
+# Helm cannot read outside the chart. deploy/deploy_test.go fails when they
+# drift from their sources; this refreshes them.
+chart-sync:
+	cp deploy/pssst.psp.yml deploy/helm/pssst/files/pssst.psp.yml
+	cp deploy/blackbox/blackbox.yml deploy/helm/pssst/files/blackbox.yml
+
+# Needs helm, and kustomize or kubectl: renders the chart and the kustomize
+# base and fails on any difference between them.
+chart-test:
+	helm lint deploy/helm/pssst
+	PSSST_REQUIRE_DEPLOY_TOOLS=1 go test -count=1 ./deploy/
