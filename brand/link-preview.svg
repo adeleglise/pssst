@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <title>PSSST: declared and observed status of your payment providers</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E1A2B"/>
+      <stop offset="1" stop-color="#16263D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <g transform="translate(96 88) scale(0.3125)">
+    <rect width="512" height="512" rx="112" fill="#0B1522"/>
+    <path d="M168 112H344A72 72 0 0 1 416 184V280A72 72 0 0 1 344 352H236L150 420L166 352A72 72 0 0 1 96 280V184A72 72 0 0 1 168 112Z"
+          fill="none" stroke="#E6EDF5" stroke-width="28" stroke-linejoin="round"/>
+    <path d="M140 232H208L238 180L276 296L304 232H372" fill="none" stroke="#F5A524"
+          stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+    <text x="288" y="176" fill="#FFFFFF" font-size="80" font-weight="700" letter-spacing="6">PSSST</text>
+    <text x="290" y="226" fill="#8FA3BA" font-size="26">Payment Status Signals &amp; Surveillance Tool</text>
+    <text x="96" y="338" fill="#E6EDF5" font-size="40">Know when a payment provider fails,</text>
+    <text x="96" y="392" fill="#E6EDF5" font-size="40">even while its status page says <tspan fill="#F5A524" font-weight="700">all good</tspan>.</text>
+    <!-- The one case the tool exists for. -->
+    <g font-size="24">
+      <rect x="96" y="452" width="370" height="64" rx="14" fill="#1E3350"/>
+      <text x="120" y="493" fill="#E6EDF5">Status page: <tspan fill="#4ADE80" font-weight="700">operational</tspan></text>
+      <text x="486" y="493" fill="#8FA3BA">+</text>
+      <rect x="514" y="452" width="250" height="64" rx="14" fill="#1E3350"/>
+      <text x="538" y="493" fill="#E6EDF5">Probes: <tspan fill="#F87171" font-weight="700">failing</tspan></text>
+      <text x="784" y="493" fill="#8FA3BA">=</text>
+      <rect x="812" y="452" width="330" height="64" rx="14" fill="#F5A524"/>
+      <text x="836" y="493" fill="#0E1A2B" font-weight="700">Unannounced failure</text>
+    </g>
+    <text x="96" y="584" fill="#8FA3BA" font-size="22">Prometheus exporter · Grafana · Datadog · open source, MIT</text>
+  </g>
+</svg>

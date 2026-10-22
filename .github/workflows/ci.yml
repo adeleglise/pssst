@@ -21,7 +21,17 @@ jobs:
           go-version-file: go.mod
       # fmt-check lists sources with ripgrep, absent from the runner image.
       - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ripgrep
-      - run: make fmt-check lint vuln test test-race build
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+      # The chart is compared with the kustomize base by go test; kubectl,
+      # preinstalled on the runner, provides kustomize. Without the variable a
+      # missing tool would skip the comparison instead of failing it.
+      - run: make fmt-check lint vuln test test-race build chart-test
+        env:
+          PSSST_REQUIRE_DEPLOY_TOOLS: "1"
+      - name: Generated dashboards are up to date
+        run: make dashboards && git diff --exit-code deploy/grafana
       - name: Validate Prometheus rules
         run: |
           docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace "$PROMETHEUS_IMAGE" check rules deploy/prometheus/pssst.yml

@@ -1,0 +1,21 @@
+PSSST is starting in namespace {{ .Release.Namespace }}.
+
+Readiness waits until every declared source and probe has been tried once:
+
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/pssst
+  kubectl -n {{ .Release.Namespace }} port-forward svc/pssst 9099 &
+  curl -s localhost:9099/metrics | grep '^psp_'
+
+Read every declared source once, as the exporter sees it:
+
+  kubectl -n {{ .Release.Namespace }} exec deploy/pssst -- /pssst-check -config /etc/pssst/config.yml
+
+The correlation lives in Prometheus rules, not in the exporter. Load
+https://github.com/adeleglise/pssst/blob/main/deploy/prometheus/pssst.yml
+to get psp:unannounced_failure and psp:confirmed_incident.
+{{- if not .Values.inventory }}
+
+This release runs the default inventory. Pass your own with
+--set-file inventory=inventory.yml; set its blackbox.base_url to
+http://pssst-blackbox:9115.
+{{- end }}

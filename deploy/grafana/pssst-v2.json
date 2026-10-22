@@ -601,15 +601,10 @@
                           {
                             "type": "value",
                             "options": {
-                              "0": {
+                              "1": {
                                 "text": "EN PANNE",
                                 "color": "red",
                                 "index": 0
-                              },
-                              "1": {
-                                "text": "OK",
-                                "color": "green",
-                                "index": 1
                               }
                             }
                           }

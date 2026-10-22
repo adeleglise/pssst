@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="80 96 352 340" width="352" height="340">
+  <title>PSSST</title>
+  <path d="M168 112H344A72 72 0 0 1 416 184V280A72 72 0 0 1 344 352H236L150 420L166 352A72 72 0 0 1 96 280V184A72 72 0 0 1 168 112Z"
+        fill="none" stroke="#0E1A2B" stroke-width="28" stroke-linejoin="round"/>
+  <path d="M140 232H208L238 180L276 296L304 232H372" fill="none" stroke="#F5A524"
+        stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

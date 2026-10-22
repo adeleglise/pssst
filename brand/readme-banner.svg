@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320">
+  <title>PSSST: declared and observed status of your payment providers</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E1A2B"/>
+      <stop offset="1" stop-color="#16263D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <g transform="translate(72 64) scale(0.375)">
+    <rect width="512" height="512" rx="112" fill="#0B1522"/>
+    <path d="M168 112H344A72 72 0 0 1 416 184V280A72 72 0 0 1 344 352H236L150 420L166 352A72 72 0 0 1 96 280V184A72 72 0 0 1 168 112Z"
+          fill="none" stroke="#E6EDF5" stroke-width="28" stroke-linejoin="round"/>
+    <path d="M140 232H208L238 180L276 296L304 232H372" fill="none" stroke="#F5A524"
+          stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+    <text x="312" y="138" fill="#FFFFFF" font-size="84" font-weight="700" letter-spacing="6">PSSST</text>
+    <text x="314" y="190" fill="#E6EDF5" font-size="28">Know when a payment provider fails,</text>
+    <text x="314" y="228" fill="#E6EDF5" font-size="28">even while its status page says <tspan fill="#F5A524" font-weight="700">all good</tspan>.</text>
+    <text x="314" y="272" fill="#8FA3BA" font-size="19">Prometheus exporter · declared vs observed status · Stripe, Adyen, PayPal and 21 more</text>
+  </g>
+</svg>

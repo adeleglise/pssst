@@ -58,11 +58,12 @@ Four corollaries, each already encoded in tests:
 ## Before claiming anything works
 
 ```sh
-make fmt-check lint vuln test test-race build rules-test
+make fmt-check lint vuln test test-race build rules-test chart-test
 make smoke        # real containers, real Prometheus, synthetic provider
 ```
 
-`rules-test` needs `promtool` and `smoke` a container engine. Where either is
+`rules-test` needs `promtool`, `chart-test` needs `helm` plus `kustomize` or
+`kubectl`, and `smoke` a container engine. Where either is
 missing, say which check did not run rather than claiming the set passed; CI
 runs both. `smoke` is the one that catches integration mistakes: it drives the declared
 and observed signals independently and asserts the recording rules produce
@@ -101,11 +102,29 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 | `internal/scheduler/` | One non-overlapping jittered loop per signal. |
 | `internal/httpclient/` | Bounded GET: timeouts, size cap, no redirects, sanitized errors. |
 | `cmd/pssst-check/` | Operator tool: resolve one source, or audit a whole inventory. |
-| `deploy/` | Default inventory, kustomize base, Blackbox modules, Prometheus rules, Datadog check, compose stack, generated dashboard. |
+| `deploy/` | Default inventory, kustomize base, Blackbox modules, Prometheus rules, Datadog check, compose stack, generated dashboards. |
+| `deploy/helm/pssst/` | Helm chart: the kustomize base again, under the same names. `deploy/deploy_test.go` renders both and fails on any difference. |
+| `brand/` | SVG sources of the icon, banner and social preview. `scripts/build-brand.sh` renders `brand/png/`. |
 | `compose.yaml`, `examples/` | The offline demo and its configuration. |
 | `.github/workflows/` | `ci.yml`: every check plus the smoke test. `image.yml`: the GHCR image. `release.yml`: a tag becomes a release. |
 | `CHANGELOG.md` | One section per version; the release workflow publishes it as notes. |
 | `docs/adr/` | Design decisions. |
+
+## Things that must change together
+
+- **The kustomize base and the Helm chart.** Change a manifest in
+  `deploy/kubernetes/` and the matching template in `deploy/helm/pssst/`, then
+  `make chart-test`. The chart carries copies of the inventory and the
+  Blackbox modules because Helm cannot read outside it: `make chart-sync`
+  after editing either. The Datadog list now lives in two places, the
+  deployment annotation and `datadog.metrics` in the chart's values.
+- **The dashboard generator and both dashboards.** `make dashboards` after any
+  change to `build_dashboard.py`; a new French string needs its English entry
+  in `EN` or the build fails. Re-upload the grafana.com listing after a change.
+- **Brand sources and renders.** Edit the SVG, run `scripts/build-brand.sh`,
+  commit both.
+- **What PSSST reads and sends.** Written in the README's security section and
+  `SECURITY.md`. A new outbound request, file or endpoint changes both.
 
 ## Repository and releases
 
@@ -123,9 +142,11 @@ order:
    (kustomize `ref` and image tag) at it. Merge.
 2. Tag `main`: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
 3. The release workflow reruns `fmt-check lint vuln test test-race` and the
-   rule tests, builds the binaries with `make dist` and publishes them with
-   `SHA256SUMS`; it fails when the changelog has no section for the tag. The
-   image workflow publishes `X.Y.Z`, `X.Y` and `latest`.
+   rule tests and `chart-test`, builds the binaries with `make dist` and
+   publishes them with `SHA256SUMS`; it fails when the changelog has no section
+   for the tag. It then pushes the chart at `X.Y.Z` to
+   `oci://ghcr.io/adeleglise/charts`. The image workflow publishes `X.Y.Z`,
+   `X.Y` and `latest`.
 
 The exported version drops the `v`: tag `v1.0.0` reports `1.0.0` in
 `psp_exporter_build_info`. `make dist` is reproducible: on a clean checkout of
@@ -262,6 +283,18 @@ file described config mounts, a published port and no shared network, while
 the running stack used images carrying their config on Prometheus's network.
 `deploy/compose.yml` is now deployed from the repository itself, so the
 committed file is the deployed one; never edit a copy by hand.
+
+**A 0/1 gauge does not say which way is up.** The dashboard reused one value
+mapping, 1 as "OK", for `psp_probe_success` and for
+`psp:observed_unavailable`, so the table of providers observed down showed
+each of them as "OK" in green. Check a mapping against the meaning of the
+query it decorates, and look at the rendered panel with a provider down.
+
+**Headless Chrome crops `--window-size`.** The new headless mode counts its
+window frame inside the size, so a 1280 × 320 render loses its bottom ninety
+pixels. `scripts/build-brand.sh` prefers `chrome-headless-shell`, which sizes
+the viewport exactly. Grafana also fails to boot in a browser whose locale is
+the POSIX `en-US@posix`: set a locale when screenshotting it.
 
 ## Operating a deployment
 

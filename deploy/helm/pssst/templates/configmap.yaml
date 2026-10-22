@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pssst-config
+  labels:
+    {{- include "pssst.helmLabels" . | nindent 4 }}
+data:
+  config.yml: |
+    {{- include "pssst.inventory" . | nindent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pssst-blackbox-config
+  labels:
+    {{- include "pssst.helmLabels" . | nindent 4 }}
+data:
+  blackbox.yml: |
+    {{- .Files.Get "files/blackbox.yml" | nindent 4 }}

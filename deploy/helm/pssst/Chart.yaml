@@ -1,0 +1,29 @@
+apiVersion: v2
+name: pssst
+description: >-
+  Prometheus exporter that reports what payment providers declare about
+  themselves and what their endpoints actually do, side by side and never
+  merged, so a failure their status page does not mention shows up.
+type: application
+# The release workflow overwrites both with the tag's version: chart X.Y.Z
+# deploys image X.Y.Z. A chart packaged from main deploys the edge image.
+version: 0.0.0
+appVersion: edge
+home: https://github.com/adeleglise/pssst
+sources:
+  - https://github.com/adeleglise/pssst
+icon: https://raw.githubusercontent.com/adeleglise/pssst/main/brand/png/icon-256.png
+keywords:
+  - prometheus
+  - exporter
+  - status-page
+  - payments
+  - stripe
+  - adyen
+  - blackbox-exporter
+  - monitoring
+maintainers:
+  - name: adeleglise
+    url: https://github.com/adeleglise
+annotations:
+  artifacthub.io/license: MIT

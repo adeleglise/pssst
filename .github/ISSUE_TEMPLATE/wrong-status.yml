@@ -1,0 +1,29 @@
+name: Wrong status for a provider
+description: PSSST exports a status that does not match the provider's page.
+labels: [adapter]
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: Provider and status page URL
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: pssst-check output
+      description: "`pssst-check -config inventory.yml`, or `pssst-check -type <adapter> -url <url>`. Remove anything private."
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What the status page showed at the same time
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: PSSST version
+      description: "`pssst -version`, or psp_exporter_build_info."

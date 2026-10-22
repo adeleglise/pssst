@@ -8,6 +8,12 @@ publishes the section matching the tag as the release notes.
 
 ### Fixed
 
+- Built with Go 1.27.3 and `golang.org/x/net` v0.60.0, which fix ten
+  vulnerabilities govulncheck found reachable from PSSST in `net/http`, its
+  HTTP/2 implementation, `crypto/tls`, `crypto/x509` and `mime/multipart`.
+- The dashboard's "PSP en panne observée" table labelled every provider in it
+  "OK" in green: it lists `psp:observed_unavailable == 1`, where 1 means down,
+  through a mapping that reads 1 as up. It now reads "EN PANNE".
 - Statuspage incidents in `postmortem` were counted as active incidents of
   unknown state. A postmortem follows resolution; it now counts as resolved.
 - Datadog could not tell a current value from a last known good one: its
@@ -19,6 +25,16 @@ publishes the section matching the tag as the release notes.
 
 ### Added
 
+- A Helm chart, published with each release to
+  `oci://ghcr.io/adeleglise/charts/pssst` at the release's version. It renders
+  the same objects as the kustomize base, and a test fails when they drift.
+- `deploy/grafana/pssst-grafana-com.json`, the dashboard in English and in the
+  classic JSON model, for import from a file or from grafana.com. CI fails
+  when either committed dashboard differs from its generator.
+- A brand kit in `brand/`: icon, banner and social preview, rendered from SVG
+  sources by `scripts/build-brand.sh`.
+- `SECURITY.md`, a README section on what PSSST reads and sends, issue
+  templates, and a sponsor link.
 - The MIT license.
 - The exporter image is published to `ghcr.io/adeleglise/pssst` for
   linux/amd64 and linux/arm64: `edge` from `main`, `X.Y.Z`, `X.Y` and
