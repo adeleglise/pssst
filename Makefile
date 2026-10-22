@@ -80,3 +80,9 @@ chart-sync:
 chart-test:
 	helm lint deploy/helm/pssst
 	PSSST_REQUIRE_DEPLOY_TOOLS=1 go test -count=1 ./deploy/
+
+# Both dashboards are generated from deploy/grafana/build_dashboard.py; CI
+# fails when a committed file differs from what the script produces.
+dashboards:
+	cd deploy/grafana && python3 build_dashboard.py > pssst-v2.json
+	cd deploy/grafana && python3 build_dashboard.py --grafana-com > pssst-grafana-com.json

@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Build the PSSST Grafana dashboard (schema v2, tabbed layout).
 
+    python3 build_dashboard.py > pssst-v2.json
+    python3 build_dashboard.py --grafana-com > pssst-grafana-com.json
+
+The second form is the same dashboard in English and in the classic JSON model
+that grafana.com imports: each tab's rows become rows of panels, the first
+tab's open and the others collapsed, and the datasource is asked for at import.
+
 The first tab answers the only two questions worth asking at a glance: who is
 down, and who is in planned maintenance. The other tabs are for looking closer
 once that answer is not enough.
@@ -10,6 +17,7 @@ Each tab therefore uses RowsLayout, and each row an AutoGridLayout, so position
 is an ordered list plus a column count rather than x/y coordinates.
 """
 import json
+import sys
 
 DS = "prometheus"
 GREEN, RED, GREY = "green", "red", "text"
@@ -143,6 +151,13 @@ UP_DOWN = [{"matcher": {"id": "byName", "options": "État"},
                                               "1": {"text": "OK", "color": GREEN, "index": 1}}}]},
                            {"id": "custom.cellOptions", "value": {"type": "color-text"}}]}]
 
+# For a table of psp:observed_unavailable == 1, where 1 means down. UP_DOWN
+# reads 1 as up, and once labelled every provider in this table "OK".
+DOWN = [{"matcher": {"id": "byName", "options": "État"},
+         "properties": [{"id": "mappings", "value": [
+             {"type": "value", "options": {"1": {"text": "EN PANNE", "color": RED, "index": 0}}}]},
+                        {"id": "custom.cellOptions", "value": {"type": "color-text"}}]}]
+
 # ------------------------------------------------------------- tab 1: triage
 triage = rows(
     ("Coup d'œil", [
@@ -161,7 +176,7 @@ triage = rows(
     ], 6, 1),
     ("Qui est en panne", [
         table("PSP en panne observée", "psp:observed_unavailable == 1", value_title="État",
-              description="Vide signifie qu'aucune panne n'est observée.", overrides=UP_DOWN),
+              description="Vide signifie qu'aucune panne n'est observée.", overrides=DOWN),
         table("Incidents déclarés en cours", "psp_active_incidents > 0", value_title="Incidents",
               description="Comptés par sévérité normalisée."),
     ], 2, 5),
@@ -276,4 +291,210 @@ dashboard = {
     },
 }
 
-print(json.dumps(dashboard, ensure_ascii=False, indent=2))
+
+# ------------------------------------------------------ grafana.com, English
+# Every human string of the dashboard, French to English. A string missing
+# here fails the build rather than reaching the listing untranslated.
+EN = {
+    "PSSST · Statut des prestataires de paiement": "PSSST · Payment provider status",
+    "Signal déclaré et signal observé, gardés séparés. Le premier onglet répond à qui est en panne et qui est en maintenance.":
+        "Declared and observed status of your payment providers, kept apart. The first rows answer who is down and who is in planned maintenance.",
+    "PSP en panne observée": "Observed down",
+    "Au moins une sonde en échec, sur une collecte fraîche et valide.": "At least one probe failing, on a fresh and valid collection.",
+    "Incidents déclarés": "Declared incidents",
+    "Le fournisseur annonce lui-même un incident ou un composant non opérationnel.": "The provider itself announces an incident or a component that is not operational.",
+    "Incidents confirmés": "Confirmed incidents",
+    "Panne observée ET incident déclaré. Le signal le plus fiable.": "Observed failure AND declared incident. The most reliable signal.",
+    "Pannes non annoncées": "Unannounced failures",
+    "Panne observée alors que la source officielle, fraîche, ne déclare rien.": "Observed failure while the official source, fresh, declares nothing.",
+    "Maintenances en cours": "Maintenance in progress",
+    "Fenêtres de maintenance actuellement ouvertes.": "Maintenance windows open right now.",
+    "Sources périmées": "Stale sources",
+    "Source déclarée configurée mais sans instantané frais.": "Declared source configured but without a fresh snapshot.",
+    "Vide signifie qu'aucune panne n'est observée.": "Empty means no failure is observed.",
+    "État": "State",
+    "EN PANNE": "DOWN",
+    "OK": "OK",
+    "Incidents déclarés en cours": "Declared incidents in progress",
+    "Comptés par sévérité normalisée.": "Counted by normalized severity.",
+    "Incidents": "Incidents",
+    "Prochaine fenêtre annoncée": "Next announced window",
+    "Date de début publiée par le fournisseur.": "Start date published by the provider.",
+    "Début": "Start",
+    "Fenêtres annoncées par fournisseur": "Announced windows per provider",
+    "Total annoncé, y compris les fenêtres sans date.": "Total announced, including windows without a date.",
+    "Fenêtres": "Windows",
+    "État par composant": "State per component",
+    "overall est le rollup de la page: un composant non opérationnel le force à zéro.": "overall is the page's rollup: any component not operational forces it to zero.",
+    "Fraîcheur des sources": "Source freshness",
+    "Temps écoulé depuis le dernier instantané complet et valide.": "Time since the last complete and valid snapshot.",
+    "Âge": "Age",
+    "Incidents déclarés par sévérité": "Declared incidents by severity",
+    "Sévérités normalisées: none, minor, major, critical, unknown.": "Normalized severities: none, minor, major, critical, unknown.",
+    "Source déclarée joignable": "Declared source reachable",
+    "1 quand le dernier appel a produit un instantané complet.": "1 when the last call produced a complete snapshot.",
+    "Dernier résultat": "Last result",
+    "Résultat rapporté par Blackbox, indépendant de ce que déclare le fournisseur.": "Result reported by Blackbox, independent of what the provider declares.",
+    "Expiration des certificats": "Certificate expiry",
+    "Seules les sondes TLS alimentent cette table.": "Only TLS probes feed this table.",
+    "Jours restants": "Days left",
+    "Latence des sondes": "Probe latency",
+    "Durée mesurée par Blackbox pour la dernière sonde collectée.": "Duration measured by Blackbox for the last collected probe.",
+    "Dernier code HTTP": "Last HTTP status",
+    "Zéro signifie aucune réponse HTTP. Les sondes TLS n'en produisent pas.": "Zero means no HTTP response. TLS probes produce none.",
+    "Code": "Code",
+    "Collectes Blackbox indisponibles": "Blackbox collections unavailable",
+    "PSSST ne parvient pas à obtenir une réponse Blackbox valide.": "PSSST cannot get a valid answer from Blackbox.",
+    "Sondes jamais collectées": "Probes never collected",
+    "Aucune collecte valide depuis le démarrage.": "No valid collection since startup.",
+    "Sources jamais collectées": "Sources never collected",
+    "Source configurée n'ayant jamais produit d'instantané.": "Configured source that has never produced a snapshot.",
+    "Entités surveillées": "Monitored providers",
+    "PSP, acquéreurs et banques confondus.": "Payment providers, acquirers and banks together.",
+    "Échecs de collecte Blackbox": "Blackbox collection failures",
+    "Mesure notre capacité à collecter, pas la santé du fournisseur.": "Measures our ability to collect, not the provider's health.",
+    "Échecs des sources déclarées": "Declared source failures",
+    "Échecs de récupération de la page de statut officielle.": "Failures to fetch the official status page.",
+    "Sondes en échec observé": "Probes observed failing",
+    "Collecte réussie mais résultat en échec: le fournisseur, pas nous.": "Collection succeeded but the result failed: the provider, not us.",
+    "Âge de la dernière collecte valide": "Age of the last valid collection",
+    "À comparer au seuil psp_probe_stale_after_seconds.": "Compare with the psp_probe_stale_after_seconds threshold.",
+    "Vue d'ensemble": "Overview",
+    "Coup d'œil": "At a glance",
+    "Qui est en panne": "Who is down",
+    "Maintenances planifiées": "Planned maintenance",
+    "Déclaré": "Declared",
+    "État déclaré": "Declared state",
+    "Tendances": "Trends",
+    "Observé": "Observed",
+    "Résultat des sondes": "Probe results",
+    "Détail": "Detail",
+    "Santé de la collecte": "Collection health",
+    "Notre capacité à mesurer": "Our ability to measure",
+    "Taux d'échec": "Failure rates",
+    "Sondes et fraîcheur": "Probes and freshness",
+}
+
+
+def en(text):
+    if text == "":
+        return text
+    if text not in EN:
+        sys.exit(f"build_dashboard: no English for {text!r}")
+    return EN[text]
+
+
+def translate(node):
+    """Translate, in place, every human string: titles, descriptions, value
+    mapping texts, renamed columns and the column names overrides match."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in ("title", "description", "text") and isinstance(value, str):
+                node[key] = en(value)
+            elif key == "renameByName":
+                node[key] = {k: en(v) for k, v in value.items()}
+            elif key == "matcher" and value.get("id") == "byName":
+                value["options"] = en(value["options"])
+            else:
+                translate(value)
+    elif isinstance(node, list):
+        for item in node:
+            translate(item)
+
+
+DS_INPUT = {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}
+
+
+def classic_panel(spec, panel_id, x, y, w, h):
+    viz = spec["vizConfig"]
+    targets = []
+    for q in spec["data"]["spec"]["queries"]:
+        target = {"refId": q["spec"]["refId"], "datasource": DS_INPUT}
+        target.update(q["spec"]["query"]["spec"])
+        targets.append(target)
+    return {
+        "id": panel_id,
+        "type": viz["group"],
+        "title": spec["title"],
+        "description": spec["description"],
+        "datasource": DS_INPUT,
+        "gridPos": {"x": x, "y": y, "w": w, "h": h},
+        "targets": targets,
+        "options": viz["spec"]["options"],
+        "fieldConfig": viz["spec"]["fieldConfig"],
+        "transformations": [{"id": t["spec"]["id"], "options": t["spec"]["options"]}
+                            for t in spec["data"]["spec"]["transformations"]],
+    }
+
+
+def classic(v2):
+    """The v2 dashboard in English and the classic JSON model, with a
+    datasource input."""
+    # A JSON round trip, not deepcopy: panels share override objects, and a
+    # shared object would be translated twice.
+    v2 = json.loads(json.dumps(v2))
+    translate(v2["spec"])
+    panels, y, panel_id = [], 0, 100
+    for index, tab_ in enumerate(v2["spec"]["layout"]["spec"]["tabs"]):
+        for row in tab_["spec"]["layout"]["spec"]["rows"]:
+            grid = row["spec"]["layout"]["spec"]
+            columns, height = grid["maxColumnCount"], grid["rowHeight"]
+            w = 24 // columns
+            h = 4 if height <= 1 else 2 * height
+            collapsed = index > 0
+            panel_id += 1
+            header = {"id": panel_id, "type": "row", "collapsed": collapsed,
+                      "title": f'{tab_["spec"]["title"]} · {row["spec"]["title"]}',
+                      "gridPos": {"x": 0, "y": y, "w": 24, "h": 1}, "panels": []}
+            panels.append(header)
+            y += 1
+            children = []
+            for i, item in enumerate(grid["items"]):
+                panel_id += 1
+                element = v2["spec"]["elements"][item["spec"]["element"]["name"]]
+                children.append(classic_panel(element["spec"], panel_id,
+                                              (i % columns) * w, y + (i // columns) * h, w, h))
+            y += h * -(-len(grid["items"]) // columns)
+            if collapsed:
+                header["panels"] = children
+            else:
+                panels.extend(children)
+    spec = v2["spec"]
+    out = {
+        "__inputs": [{"name": "DS_PROMETHEUS", "label": "Prometheus", "type": "datasource",
+                      "pluginId": "prometheus", "pluginName": "Prometheus",
+                      "description": "The Prometheus that scrapes PSSST and loads its rules."}],
+        "__requires": [
+            {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"},
+            {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
+            {"type": "panel", "id": "stat", "name": "Stat", "version": ""},
+            {"type": "panel", "id": "table", "name": "Table", "version": ""},
+            {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""},
+        ],
+        "uid": "pssst-status",
+        "title": spec["title"],
+        "description": spec["description"],
+        "tags": ["pssst", "payments", "status-page", "blackbox"],
+        "editable": True,
+        "graphTooltip": 0,
+        "time": {"from": spec["timeSettings"]["from"], "to": spec["timeSettings"]["to"]},
+        "timepicker": {"refresh_intervals": spec["timeSettings"]["autoRefreshIntervals"]},
+        "refresh": spec["timeSettings"]["autoRefresh"],
+        "timezone": spec["timeSettings"]["timezone"],
+        "schemaVersion": 39,
+        "templating": {"list": []},
+        "annotations": {"list": []},
+        "links": [{"type": "link", "title": "PSSST on GitHub", "url": "https://github.com/adeleglise/pssst",
+                   "targetBlank": True, "icon": "external link", "tags": [], "asDropdown": False,
+                   "includeVars": False, "keepTime": False, "tooltip": ""}],
+        "panels": panels,
+    }
+    return out
+
+
+if sys.argv[1:] == ["--grafana-com"]:
+    print(json.dumps(classic(dashboard), ensure_ascii=False, indent=2))
+elif sys.argv[1:]:
+    sys.exit("usage: build_dashboard.py [--grafana-com]")
+else:
+    print(json.dumps(dashboard, ensure_ascii=False, indent=2))

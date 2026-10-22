@@ -30,6 +30,8 @@ jobs:
       - run: make fmt-check lint vuln test test-race build chart-test
         env:
           PSSST_REQUIRE_DEPLOY_TOOLS: "1"
+      - name: Generated dashboards are up to date
+        run: make dashboards && git diff --exit-code deploy/grafana
       - name: Validate Prometheus rules
         run: |
           docker run --rm --entrypoint /bin/promtool -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace "$PROMETHEUS_IMAGE" check rules deploy/prometheus/pssst.yml
