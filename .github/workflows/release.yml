@@ -2,7 +2,10 @@ name: Release
 
 # A version tag publishes a GitHub release: the Go checks and rule tests, then
 # the binaries from `make dist` and the matching CHANGELOG section as notes,
-# then the Helm chart at the same version to oci://ghcr.io/<owner>/charts.
+# then the image (image.yml, called from here so it only runs once the checks
+# have passed), then the Helm chart at the same version to
+# oci://ghcr.io/<owner>/charts. The binaries are attested: verify one with
+# `gh attestation verify <file> --repo <owner>/pssst`.
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
@@ -18,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -41,6 +46,9 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: make dist VERSION="${TAG#v}"
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-checksums: dist/SHA256SUMS
       - name: Extract release notes
         env:
           TAG: ${{ github.ref_name }}
@@ -58,10 +66,21 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag dist/*
 
-  # Chart X.Y.Z deploys image X.Y.Z. The first push creates a private package
-  # on GHCR: make it public once in the package settings.
-  chart:
+  # Images X.Y.Z, X.Y and latest, only after the release job has passed.
+  image:
     needs: release
+    uses: ./.github/workflows/image.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+  # Chart X.Y.Z deploys image X.Y.Z, hence the wait for the image. The first
+  # push creates a private package on GHCR: make it public once in the package
+  # settings.
+  chart:
+    needs: [release, image]
     runs-on: ubuntu-latest
     permissions:
       contents: read

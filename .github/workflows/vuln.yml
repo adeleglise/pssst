@@ -1,0 +1,22 @@
+name: Vulnerabilities
+
+# CI runs govulncheck on every change. This run is for the days nothing
+# changes: a vulnerability published against a dependency or the Go toolchain
+# shows up here within a week instead of at the next pull request.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vuln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make vuln

@@ -25,3 +25,14 @@ updates:
     groups:
       images:
         patterns: ["*"]
+
+  # Blackbox and Prometheus images in compose.yaml. Kubernetes manifests and
+  # Helm values are not scanned by Dependabot: deploy/deploy_test.go keeps the
+  # Blackbox reference identical in all four places.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      compose-images:
+        patterns: ["*"]

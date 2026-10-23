@@ -7,15 +7,25 @@ name: Image
 #   push to main    ghcr.io/<owner>/pssst:edge
 #   tag vX.Y.Z      ghcr.io/<owner>/pssst:X.Y.Z, X.Y and latest
 #
+# A tag does not trigger this workflow: release.yml calls it once its tests and
+# its CHANGELOG check have passed, so a failing release publishes no image.
+# Called from a tag run, github.ref is still the tag, which is what selects the
+# version tags and `latest` below.
+#
+# Each push is attested: build provenance in the image, and a signed
+# attestation of the pushed digest stored next to it in the registry.
+#
 # The image carries no inventory: mount one at /etc/pssst/config.yml.
 on:
   push:
     branches: [main]
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_call:
 
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
 
 jobs:
   image:
@@ -39,15 +49,22 @@ jobs:
           # latest only for a release tag, never for main.
           flavor: |
             latest=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@v7
+      - id: build
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: exporter
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: mode=max
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # The exported version drops the v, like the release binaries; main
           # reports "edge".
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
