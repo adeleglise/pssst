@@ -187,3 +187,53 @@ func keys(m map[string]any) []string {
 	slices.Sort(out)
 	return out
 }
+
+// The Blackbox image is written in five places that Dependabot, as configured
+// here, cannot all reach: the Dockerfile and compose.yaml it does update, the
+// Kubernetes manifest, the chart's values and the chart's README it does not.
+// They must name the same version, and the same digest when one is pinned.
+func TestBlackboxImageIsTheSameEverywhere(t *testing.T) {
+	const repository = "quay.io/prometheus/blackbox-exporter"
+	reference := regexp.MustCompile(regexp.QuoteMeta(repository) + `:[A-Za-z0-9._-]+(?:@sha256:[0-9a-fA-F]+)?`)
+
+	found := map[string][]string{}
+	for _, file := range []string{"../Dockerfile", "../compose.yaml", "kubernetes/blackbox.yaml", "helm/pssst/README.md"} {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found[file] = slices.Compact(reference.FindAllString(string(b), -1))
+	}
+
+	b, err := os.ReadFile("helm/pssst/values.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values struct {
+		Blackbox struct {
+			Image struct {
+				Repository string `yaml:"repository"`
+				Tag        string `yaml:"tag"`
+			} `yaml:"image"`
+		} `yaml:"blackbox"`
+	}
+	if err := yaml.Unmarshal(b, &values); err != nil {
+		t.Fatal(err)
+	}
+	image := values.Blackbox.Image
+	found["helm/pssst/values.yaml"] = []string{image.Repository + ":" + image.Tag}
+
+	want := ""
+	for file, refs := range found {
+		if len(refs) != 1 {
+			t.Errorf("%s: want exactly one Blackbox image reference, got %v", file, refs)
+			continue
+		}
+		if want == "" {
+			want = refs[0]
+		}
+		if refs[0] != want {
+			t.Errorf("%s has %s, other files have %s", file, refs[0], want)
+		}
+	}
+}

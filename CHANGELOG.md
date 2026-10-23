@@ -8,6 +8,10 @@ publishes the section matching the tag as the release notes.
 
 ### Fixed
 
+- A release tag no longer publishes the `X.Y.Z`, `X.Y` and `latest` images on
+  its own. The release workflow calls the image workflow after its tests and
+  its CHANGELOG check have passed, and the chart waits for the image, so a
+  failing release publishes neither.
 - Built with Go 1.27.3 and `golang.org/x/net` v0.60.0, which fix ten
   vulnerabilities govulncheck found reachable from PSSST in `net/http`, its
   HTTP/2 implementation, `crypto/tls`, `crypto/x509` and `mime/multipart`.
@@ -37,6 +41,17 @@ publishes the section matching the tag as the release notes.
   which had none. Unit tests now also cover severity normalization in the Statuspage,
   Instatus, Adyen and PayPal adapters, the shared snapshot helpers, and
   configuration loading limits.
+- Every GitHub Action in the workflows is pinned to a full commit SHA, with the
+  version in a comment; Dependabot updates both.
+- Release binaries and the exporter image carry signed build provenance:
+  check a binary with `gh attestation verify <file> --repo adeleglise/pssst`.
+  The image is also built with `provenance: mode=max`.
+- A weekly run of `make vuln` (`vuln.yml`, also runnable by hand), so a
+  vulnerability published between two changes is reported within a week.
+- Dependabot now watches the images in `compose.yaml`, and a test fails when
+  the Blackbox image differs between the Dockerfile, `compose.yaml`, the
+  Kubernetes manifest, the chart's values and the chart's README, and also
+  when a pinned digest differs.
 - A Helm chart, published with each release to
   `oci://ghcr.io/adeleglise/charts/pssst` at the release's version. It renders
   the same objects as the kustomize base, and a test fails when they drift.
