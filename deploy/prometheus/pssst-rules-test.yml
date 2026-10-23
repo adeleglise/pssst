@@ -810,10 +810,12 @@ tests:
         exp_alerts: []
 
   # A probe failing every other minute never stays down five minutes, so
-  # PSPObservedUnavailable never fires; the ratio catches it. A steady
-  # outage is that alert's case, and an endpoint going down for good crosses
-  # the flapping band in seven minutes, under the 10m timer. A healthy
-  # endpoint next to an unknown one is unknown, not 1.
+  # PSPObservedUnavailable never fires; the ratio catches it. In the band
+  # from 1m, it fires at 11m and not at 10m. A steady outage is that alert's
+  # case, and an endpoint going down for good crosses the flapping band in
+  # seven minutes, under the 10m timer: at 18m it is still in the band and
+  # silent.
+  # A healthy endpoint next to an unknown one is unknown, not 1.
   - name: a flapping probe warns, a steady one does not
     interval: 1m
     input_series:
@@ -878,6 +880,17 @@ tests:
           - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="goes_down"}'
             value: 0.4
       - expr: psp:probe_success_ratio_10m
+        eval_time: 18m
+        exp_samples:
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="flapping"}'
+            value: 0.5
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="steady_up"}'
+            value: 1
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="steady_down"}'
+            value: 0
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="goes_down"}'
+            value: 0.1
+      - expr: psp:probe_success_ratio_10m
         eval_time: 22m
         exp_samples:
           - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="flapping"}'
@@ -889,6 +902,33 @@ tests:
           - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="goes_down"}'
             value: 0
     alert_rule_test:
+      - eval_time: 10m
+        alertname: PSPObservedFlapping
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: PSPObservedFlapping
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: j:9099
+              psp: flapping
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failures come and go
+              description: At least one configured endpoint for flapping on j:9099 has failed more than 30% of its probes over ten minutes, for ten minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedflapping
+      - eval_time: 18m
+        alertname: PSPObservedFlapping
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: j:9099
+              psp: flapping
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failures come and go
+              description: At least one configured endpoint for flapping on j:9099 has failed more than 30% of its probes over ten minutes, for ten minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedflapping
       - eval_time: 24m
         alertname: PSPObservedFlapping
         exp_alerts:

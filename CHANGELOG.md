@@ -77,8 +77,9 @@ publishes the section matching the tag as the release notes.
 - An Alertmanager example in the README: `info` routed away from the pager,
   and the observed-only warnings inhibited while `PSPUnannouncedFailure` or
   `PSPConfirmedIncident` fires for the same provider.
-- Rule tests for the `PSPStatusSourceUnavailable` and
-  `PSPProbeCollectionUnavailable` timers, for a `type: none` provider failing,
+- Rule tests for the `PSPStatusSourceUnavailable`,
+  `PSPProbeCollectionUnavailable` and `PSPObservedFlapping` timers, for a
+  `type: none` provider failing,
   and for two endpoints of one provider with different freshness.
 
 ### Changed

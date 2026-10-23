@@ -137,8 +137,8 @@ groups:
 
       # Observed only, like PSPObservedUnavailable. Above zero: a steady outage
       # is that alert's case. An endpoint that goes down for good spends seven
-      # minutes between 0.7 and 0, under the 10m timer; a single outage of six
-      # to ten minutes does trip it, after PSPObservedUnavailable.
+      # minutes between 0.7 and 0, under the 10m timer; a single outage of seven
+      # to nine minutes does trip it, after PSPObservedUnavailable.
       - alert: PSPObservedFlapping
         expr: psp:probe_success_ratio_10m < 0.7 and psp:probe_success_ratio_10m > 0
         for: 10m

@@ -70,7 +70,7 @@ this is when it actually began.
 of its probes, and this held for ten minutes. A probe that fails every other
 minute never stays down five minutes in a row, so `PSPObservedUnavailable`
 never fires for it; this does. A steady outage does not trigger it, but a
-single outage of six to ten minutes does, after `PSPObservedUnavailable`.
+single outage of seven to nine minutes does, after `PSPObservedUnavailable`.
 Observed only.
 
 **Signal.** `psp:probe_success_ratio_10m`, the share of probes that succeeded
@@ -123,11 +123,14 @@ page. Probes often see the failure before the page says it.
 
 ## PSPStatusSourceUnavailable
 
-**Means.** For ten minutes, PSSST has had no fresh complete snapshot of the
-provider's status page: polls fail, or the page no longer parses. Declared
-only. The declared signal is now **unknown**, not healthy, so
-`PSPUnannouncedFailure` and `PSPConfirmedIncident` cannot fire for this
-provider until it returns.
+**Means.** For ten minutes, every poll of the provider's status page has
+failed: the page does not answer, or no longer parses. Declared only. The last
+complete snapshot stays usable while it is fresh, until
+`psp_status_source_stale_after_seconds`: three times the status interval plus
+jitter plus timeout, about seventeen minutes with the shipped inventory. Until
+then `PSPUnannouncedFailure` and `PSPConfirmedIncident` can still fire on it.
+After that the declared signal is **unknown**, not healthy, and neither can
+fire for this provider until a poll succeeds.
 
 **Signal.** `psp:status_source_stale`, `psp_status_source_up`,
 `psp_status_poll_total{outcome="failure"}`, and the exporter's logs, which
