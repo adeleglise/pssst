@@ -27,6 +27,7 @@ images:
 resources:
   - kubernetes/deployment.yaml
   - kubernetes/blackbox.yaml
+  - kubernetes/networkpolicy.yaml
   - kubernetes/servicemonitor.yaml
 
 labels:

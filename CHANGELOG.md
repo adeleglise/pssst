@@ -64,6 +64,21 @@ publishes the section matching the tag as the release notes.
   the Blackbox image differs between the Dockerfile, `compose.yaml`, the
   Kubernetes manifest, the chart's values and the chart's README, and also
   when a pinned digest differs.
+- The Kubernetes manifests and the Helm chart now ship a NetworkPolicy that
+  lets only the `pssst` pods reach Blackbox Exporter on port 9115. Before, any
+  pod in the cluster could use it as a probe proxy. The chart turns it off with
+  `networkPolicy.enabled=false`; the base needs a CNI that enforces
+  NetworkPolicy to honour it.
+- The Helm chart installs the correlation rules as a PrometheusRule with
+  `prometheusRule.enabled=true`, copied from the same release as the image,
+  with `prometheusRule.namespace` and `prometheusRule.additionalLabels`.
+  Off by default.
+- The chart accepts `serviceMonitor.additionalLabels`, so a Prometheus that
+  selects ServiceMonitors by label, such as kube-prometheus-stack, picks it up.
+- The chart accepts `extraEnv` and `envFrom`, so a token an inventory header
+  reads as `${TOKEN}` can come from a Secret.
+- The README and SECURITY.md say that `/metrics`, `/healthz` and `/readyz` are
+  unauthenticated plain HTTP to keep on the monitoring network.
 - A Helm chart, published with each release to
   `oci://ghcr.io/adeleglise/charts/pssst` at the release's version. It renders
   the same objects as the kustomize base, and a test fails when they drift.

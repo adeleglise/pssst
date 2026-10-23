@@ -6,6 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: pssst
     {{- include "pssst.helmLabels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.additionalLabels }}{{ toYaml . | nindent 4 }}{{- end }}
 spec:
   selector:
     matchLabels:

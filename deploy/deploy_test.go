@@ -27,6 +27,7 @@ func TestChartFilesMatchSources(t *testing.T) {
 	for chart, source := range map[string]string{
 		"helm/pssst/files/pssst.psp.yml": "pssst.psp.yml",
 		"helm/pssst/files/blackbox.yml":  "blackbox/blackbox.yml",
+		"helm/pssst/files/pssst.yml":     "prometheus/pssst.yml",
 	} {
 		a, err := os.ReadFile(chart)
 		if err != nil {
@@ -85,6 +86,64 @@ func honorsLabels(t *testing.T, renderer string, monitor any) {
 		if e, _ := endpoint.(map[string]any); e["honorLabels"] != true {
 			t.Errorf("%s: ServiceMonitor/pssst endpoint %d does not set honorLabels: true", renderer, i)
 		}
+	}
+}
+
+// The PrometheusRule wraps the rules file untouched: same groups, and the
+// alert templates ({{ $labels }}) survive Helm.
+func TestChartPrometheusRuleWrapsTheRulesFile(t *testing.T) {
+	helm := tool(t, "helm")
+	raw, err := os.ReadFile("prometheus/pssst.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want any
+	if err := yaml.Unmarshal(raw, &want); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := render(t, helm, "template", "pssst", "helm/pssst")["PrometheusRule/pssst"]; ok {
+		t.Error("PrometheusRule rendered by default")
+	}
+	rule, ok := render(t, helm, "template", "pssst", "helm/pssst", "--set", "prometheusRule.enabled=true")["PrometheusRule/pssst"].(map[string]any)
+	if !ok {
+		t.Fatal("no PrometheusRule with prometheusRule.enabled=true")
+	}
+	if !reflect.DeepEqual(rule["spec"], want) {
+		t.Errorf("PrometheusRule spec differs from deploy/prometheus/pssst.yml")
+	}
+}
+
+// Each option the chart adds over the base changes only what it names.
+func TestChartOptions(t *testing.T) {
+	helm := tool(t, "helm")
+	defaults := render(t, helm, "template", "pssst", "helm/pssst")
+
+	if _, ok := defaults["NetworkPolicy/pssst-blackbox"]; !ok {
+		t.Error("NetworkPolicy missing by default")
+	}
+	off := render(t, helm, "template", "pssst", "helm/pssst", "--set", "networkPolicy.enabled=false")
+	if _, ok := off["NetworkPolicy/pssst-blackbox"]; ok {
+		t.Error("NetworkPolicy rendered with networkPolicy.enabled=false")
+	}
+
+	labelled := render(t, helm, "template", "pssst", "helm/pssst",
+		"--set", "serviceMonitor.enabled=true", "--set", "serviceMonitor.additionalLabels.release=prom")
+	labels := labelled["ServiceMonitor/pssst"].(map[string]any)["metadata.labels"].(map[string]any)
+	if labels["release"] != "prom" {
+		t.Errorf("ServiceMonitor labels = %v, want release=prom", labels)
+	}
+
+	env := render(t, helm, "template", "pssst", "helm/pssst",
+		"--set", "extraEnv[0].name=TOKEN", "--set", "extraEnv[0].value=x",
+		"--set", "envFrom[0].secretRef.name=pssst-tokens")
+	spec := env["Deployment/pssst"].(map[string]any)["spec"].(map[string]any)
+	container := spec["template"].(map[string]any)["spec"].(map[string]any)["containers"].([]any)[0].(map[string]any)
+	if got := container["env"].([]any); len(got) != 2 || got[0].(map[string]any)["name"] != "PSSST_LOG_LEVEL" {
+		t.Errorf("env = %v, want PSSST_LOG_LEVEL first, then TOKEN", got)
+	}
+	if got := container["envFrom"].([]any); len(got) != 1 {
+		t.Errorf("envFrom = %v, want the secretRef", got)
 	}
 }
 
