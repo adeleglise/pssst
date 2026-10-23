@@ -387,7 +387,7 @@ yq '{"apiVersion": "monitoring.coreos.com/v1", "kind": "PrometheusRule",
 | `psp:declared_unavailable` | 1 or 0 while a configured source is fresh; absent for stale and `type: none`. |
 | `psp:confirmed_incident` | Both signals failing, unless a maintenance window is open with no incident declared. |
 | `psp:unannounced_failure` | Observed failing, declared fresh and quiet, no maintenance window. |
-| `psp:status_source_stale` | No fresh complete snapshot. |
+| `psp:status_source_stale` | The last poll failed, or the last complete snapshot is missing or older than `psp_status_source_stale_after_seconds`. |
 | `psp:probe_collection_unavailable` | Blackbox cannot be reached or answers badly. |
 | `psp:probe_collection_fresh` | Every endpoint has a fresh collection. |
 

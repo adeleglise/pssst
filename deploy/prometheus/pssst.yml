@@ -176,7 +176,7 @@ groups:
           severity: warning
         annotations:
           summary: PSP official status source is unavailable or stale
-          description: 'PSSST on {{ $labels.instance }} has no fresh complete official status snapshot for {{ $labels.psp }}.'
+          description: 'PSSST on {{ $labels.instance }} has failed every poll of the official status source for {{ $labels.psp }} for ten minutes, or has no fresh snapshot of it.'
           runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspstatussourceunavailable
 
       - alert: PSPProbeCollectionUnavailable

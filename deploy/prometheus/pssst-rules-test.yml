@@ -728,7 +728,7 @@ tests:
               severity: warning
             exp_annotations:
               summary: PSP official status source is unavailable or stale
-              description: PSSST on h:9099 has no fresh complete official status snapshot for source_down.
+              description: PSSST on h:9099 has failed every poll of the official status source for source_down for ten minutes, or has no fresh snapshot of it.
               runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspstatussourceunavailable
 
   # Blackbox never answers for one provider and misses one collection at 2m
