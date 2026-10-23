@@ -244,3 +244,28 @@ func TestMaintenanceWithoutStartDate(t *testing.T) {
 		t.Errorf("next maintenance = %v, want %v", snapshot.NextMaintenance, want)
 	}
 }
+
+func TestNormalizeSeverity(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]string{
+		"OPERATIONAL":         "none",
+		"NONE":                "none",
+		"DEGRADEDPERFORMANCE": "minor",
+		"MINOR":               "minor",
+		"PARTIALOUTAGE":       "major",
+		"MAJOROUTAGE":         "major",
+		"MAJOR":               "major",
+		"CRITICAL":            "critical",
+		"operational":         "none",
+		"DegradedPerformance": "minor",
+		"majorOutage":         "major",
+		"Critical":            "critical",
+		"":                    "unknown",
+		"UNDERMAINTENANCE":    "unknown",
+		"something new":       "unknown",
+	} {
+		if got := normalizeSeverity(in); got != want {
+			t.Errorf("normalizeSeverity(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

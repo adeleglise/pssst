@@ -25,6 +25,11 @@ publishes the section matching the tag as the release notes.
 
 ### Added
 
+- `make fuzz` runs short fuzz targets against the Blackbox exposition decoder
+  and the Kener page parser, the two hand-written parsers of untrusted input,
+  which had none. Unit tests now also cover severity normalization in the Statuspage,
+  Instatus, Adyen and PayPal adapters, the shared snapshot helpers, and
+  configuration loading limits.
 - A Helm chart, published with each release to
   `oci://ghcr.io/adeleglise/charts/pssst` at the release's version. It renders
   the same objects as the kustomize base, and a test fails when they drift.

@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -166,5 +168,35 @@ psps:
 	}
 	if _, err := Parse([]byte(withComponents("kener_v1", "https://status.example.test", "cards", "bad\tlabel"))); err == nil {
 		t.Error("a control character must be rejected in any identifier")
+	}
+}
+
+func TestLoadRejectsMissingAndOversizedFiles(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	if _, err := Load(filepath.Join(dir, "absent.yml")); err == nil {
+		t.Fatal("a missing file must be an error")
+	} else if strings.Contains(err.Error(), dir) {
+		t.Fatalf("the error leaks the path: %v", err)
+	}
+
+	// Valid YAML padded with comments past the limit: the size cap, not the
+	// content, is what must refuse it.
+	big := filepath.Join(dir, "big.yml")
+	padded := valid + "\n#" + strings.Repeat("x", MaxConfigBytes)
+	if err := os.WriteFile(big, []byte(padded), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(big); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("an oversized file must be refused for its size, got %v", err)
+	}
+
+	ok := filepath.Join(dir, "ok.yml")
+	if err := os.WriteFile(ok, []byte(valid), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(ok); err != nil {
+		t.Fatalf("a valid file must load: %v", err)
 	}
 }
