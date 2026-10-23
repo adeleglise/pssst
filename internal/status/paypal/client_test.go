@@ -202,3 +202,31 @@ func TestFetchRejectsUpstreamFailure(t *testing.T) {
 		t.Error("a failing upstream must fail the snapshot")
 	}
 }
+
+func TestNormalizeSeverity(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]string{
+		"operational":          "none",
+		"none":                 "none",
+		"degraded performance": "minor",
+		"minor":                "minor",
+		"partial outage":       "major",
+		"major":                "major",
+		"service disruption":   "critical",
+		"outage":               "critical",
+		"critical":             "critical",
+		"Operational":          "none",
+		" PARTIAL OUTAGE ":     "major",
+		"Service Disruption":   "critical",
+		"":                     "unknown",
+		"informational":        "unknown",
+	} {
+		value := in
+		if got := normalizeSeverity(&value); got != want {
+			t.Errorf("normalizeSeverity(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := normalizeSeverity(nil); got != "unknown" {
+		t.Errorf("normalizeSeverity(nil) = %q, want unknown", got)
+	}
+}

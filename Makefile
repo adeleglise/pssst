@@ -9,7 +9,7 @@ PLATFORMS ?= linux/amd64 linux/arm64 darwin/arm64
 # misleading version number.
 VERSION ?= $(or $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//'),dev)
 
-.PHONY: fmt fmt-check lint vuln test test-race build dist image up down rules-test smoke chart-sync chart-test dashboards
+.PHONY: fmt fmt-check lint vuln test test-race fuzz build dist image up down rules-test smoke chart-sync chart-test dashboards
 
 fmt:
 	@command -v rg >/dev/null
@@ -33,6 +33,12 @@ test:
 
 test-race:
 	go test -race ./...
+
+# Short fuzz runs of the two parsers that read remote text. Not part of CI.
+FUZZTIME ?= 15s
+fuzz:
+	go test ./internal/blackbox -run '^$$' -fuzz '^FuzzDecodeMetrics$$' -fuzztime $(FUZZTIME)
+	go test ./internal/status/kener -run '^$$' -fuzz '^FuzzDecode$$' -fuzztime $(FUZZTIME)
 
 build:
 	mkdir -p bin
