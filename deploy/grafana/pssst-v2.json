@@ -887,6 +887,293 @@
         "kind": "Panel",
         "spec": {
           "id": 11,
+          "title": "Pannes non annoncées dans le temps",
+          "description": "Une ligne par fournisseur, colorée tant que la panne observée n'est pas annoncée. Un blanc veut dire que la condition n'était pas vraie, ou pas évaluée.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "hidden": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "prometheus"
+                      },
+                      "spec": {
+                        "expr": "psp:unannounced_failure == 1",
+                        "legendFormat": "{{psp}}",
+                        "range": true,
+                        "instant": false
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "state-timeline",
+            "version": "",
+            "spec": {
+              "options": {
+                "mergeValues": true,
+                "showValue": "never",
+                "alignValue": "left",
+                "rowHeight": 0.8,
+                "legend": {
+                  "showLegend": false,
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "lineWidth": 0,
+                    "fillOpacity": 85
+                  },
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "red"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "text",
+                        "value": null
+                      }
+                    ]
+                  },
+                  "mappings": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "1": {
+                          "text": "NON ANNONCÉE",
+                          "color": "red",
+                          "index": 0
+                        }
+                      }
+                    }
+                  ]
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-12": {
+        "kind": "Panel",
+        "spec": {
+          "id": 12,
+          "title": "Incidents confirmés dans le temps",
+          "description": "Une ligne par fournisseur, colorée tant que la panne observée et l'incident déclaré coïncident.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "hidden": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "prometheus"
+                      },
+                      "spec": {
+                        "expr": "psp:confirmed_incident == 1",
+                        "legendFormat": "{{psp}}",
+                        "range": true,
+                        "instant": false
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "state-timeline",
+            "version": "",
+            "spec": {
+              "options": {
+                "mergeValues": true,
+                "showValue": "never",
+                "alignValue": "left",
+                "rowHeight": 0.8,
+                "legend": {
+                  "showLegend": false,
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "lineWidth": 0,
+                    "fillOpacity": 85
+                  },
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "red"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "text",
+                        "value": null
+                      }
+                    ]
+                  },
+                  "mappings": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "1": {
+                          "text": "CONFIRMÉ",
+                          "color": "red",
+                          "index": 0
+                        }
+                      }
+                    }
+                  ]
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-13": {
+        "kind": "Panel",
+        "spec": {
+          "id": 13,
+          "title": "Maintenances en cours dans le temps",
+          "description": "Une ligne par fournisseur, colorée tant qu'une fenêtre de maintenance est ouverte.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "refId": "A",
+                    "hidden": false,
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "prometheus"
+                      },
+                      "spec": {
+                        "expr": "psp_maintenance_active > 0",
+                        "legendFormat": "{{psp}}",
+                        "range": true,
+                        "instant": false
+                      }
+                    }
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "state-timeline",
+            "version": "",
+            "spec": {
+              "options": {
+                "mergeValues": true,
+                "showValue": "never",
+                "alignValue": "left",
+                "rowHeight": 0.8,
+                "legend": {
+                  "showLegend": false,
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "lineWidth": 0,
+                    "fillOpacity": 85
+                  },
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "blue"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "text",
+                        "value": null
+                      }
+                    ]
+                  },
+                  "mappings": [
+                    {
+                      "type": "range",
+                      "options": {
+                        "from": 1,
+                        "to": 1000000,
+                        "result": {
+                          "text": "MAINTENANCE",
+                          "color": "blue",
+                          "index": 0
+                        }
+                      }
+                    }
+                  ]
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-14": {
+        "kind": "Panel",
+        "spec": {
+          "id": 14,
           "title": "État par composant",
           "description": "overall est le rollup de la page: un composant non opérationnel le force à zéro.",
           "links": [],
@@ -1004,10 +1291,10 @@
           }
         }
       },
-      "panel-12": {
+      "panel-15": {
         "kind": "Panel",
         "spec": {
-          "id": 12,
+          "id": 15,
           "title": "Fraîcheur des sources",
           "description": "Temps écoulé depuis le dernier instantané complet et valide.",
           "links": [],
@@ -1091,10 +1378,10 @@
           }
         }
       },
-      "panel-13": {
+      "panel-16": {
         "kind": "Panel",
         "spec": {
-          "id": 13,
+          "id": 16,
           "title": "Incidents déclarés par sévérité",
           "description": "Sévérités normalisées: none, minor, major, critical, unknown.",
           "links": [],
@@ -1173,10 +1460,10 @@
           }
         }
       },
-      "panel-14": {
+      "panel-17": {
         "kind": "Panel",
         "spec": {
-          "id": 14,
+          "id": 17,
           "title": "Source déclarée joignable",
           "description": "1 quand le dernier appel a produit un instantané complet.",
           "links": [],
@@ -1255,10 +1542,10 @@
           }
         }
       },
-      "panel-15": {
+      "panel-18": {
         "kind": "Panel",
         "spec": {
-          "id": 15,
+          "id": 18,
           "title": "Dernier résultat",
           "description": "Résultat rapporté par Blackbox, indépendant de ce que déclare le fournisseur.",
           "links": [],
@@ -1376,10 +1663,10 @@
           }
         }
       },
-      "panel-16": {
+      "panel-19": {
         "kind": "Panel",
         "spec": {
-          "id": 16,
+          "id": 19,
           "title": "Expiration des certificats",
           "description": "Seules les sondes TLS alimentent cette table.",
           "links": [],
@@ -1463,10 +1750,10 @@
           }
         }
       },
-      "panel-17": {
+      "panel-20": {
         "kind": "Panel",
         "spec": {
-          "id": 17,
+          "id": 20,
           "title": "Latence des sondes",
           "description": "Durée mesurée par Blackbox pour la dernière sonde collectée.",
           "links": [],
@@ -1545,10 +1832,10 @@
           }
         }
       },
-      "panel-18": {
+      "panel-21": {
         "kind": "Panel",
         "spec": {
-          "id": 18,
+          "id": 21,
           "title": "Dernier code HTTP",
           "description": "Zéro signifie aucune réponse HTTP. Les sondes TLS n'en produisent pas.",
           "links": [],
@@ -1631,10 +1918,10 @@
           }
         }
       },
-      "panel-19": {
+      "panel-22": {
         "kind": "Panel",
         "spec": {
-          "id": 19,
+          "id": 22,
           "title": "Collectes Blackbox indisponibles",
           "description": "PSSST ne parvient pas à obtenir une réponse Blackbox valide.",
           "links": [],
@@ -1711,10 +1998,10 @@
           }
         }
       },
-      "panel-20": {
+      "panel-23": {
         "kind": "Panel",
         "spec": {
-          "id": 20,
+          "id": 23,
           "title": "Sondes jamais collectées",
           "description": "Aucune collecte valide depuis le démarrage.",
           "links": [],
@@ -1791,10 +2078,10 @@
           }
         }
       },
-      "panel-21": {
+      "panel-24": {
         "kind": "Panel",
         "spec": {
-          "id": 21,
+          "id": 24,
           "title": "Sources jamais collectées",
           "description": "Source configurée n'ayant jamais produit d'instantané.",
           "links": [],
@@ -1871,10 +2158,10 @@
           }
         }
       },
-      "panel-22": {
+      "panel-25": {
         "kind": "Panel",
         "spec": {
-          "id": 22,
+          "id": 25,
           "title": "Entités surveillées",
           "description": "PSP, acquéreurs et banques confondus.",
           "links": [],
@@ -1947,10 +2234,10 @@
           }
         }
       },
-      "panel-23": {
+      "panel-26": {
         "kind": "Panel",
         "spec": {
-          "id": 23,
+          "id": 26,
           "title": "Échecs de collecte Blackbox",
           "description": "Mesure notre capacité à collecter, pas la santé du fournisseur.",
           "links": [],
@@ -2029,10 +2316,10 @@
           }
         }
       },
-      "panel-24": {
+      "panel-27": {
         "kind": "Panel",
         "spec": {
-          "id": 24,
+          "id": 27,
           "title": "Échecs des sources déclarées",
           "description": "Échecs de récupération de la page de statut officielle.",
           "links": [],
@@ -2111,10 +2398,10 @@
           }
         }
       },
-      "panel-25": {
+      "panel-28": {
         "kind": "Panel",
         "spec": {
-          "id": 25,
+          "id": 28,
           "title": "Sondes en échec observé",
           "description": "Collecte réussie mais résultat en échec: le fournisseur, pas nous.",
           "links": [],
@@ -2193,10 +2480,10 @@
           }
         }
       },
-      "panel-26": {
+      "panel-29": {
         "kind": "Panel",
         "spec": {
-          "id": 26,
+          "id": 29,
           "title": "Âge de la dernière collecte valide",
           "description": "À comparer au seuil psp_probe_stale_after_seconds.",
           "links": [],
@@ -2436,6 +2723,51 @@
                           }
                         }
                       }
+                    },
+                    {
+                      "kind": "RowsLayoutRow",
+                      "spec": {
+                        "title": "Historique",
+                        "collapse": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 1,
+                            "rowHeight": 3,
+                            "columnWidthMode": "standard",
+                            "fillScreen": false,
+                            "items": [
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-11"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-12"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-13"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
                     }
                   ]
                 }
@@ -2468,7 +2800,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-11"
+                                    "name": "panel-14"
                                   }
                                 }
                               },
@@ -2477,7 +2809,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-12"
+                                    "name": "panel-15"
                                   }
                                 }
                               }
@@ -2504,7 +2836,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-13"
+                                    "name": "panel-16"
                                   }
                                 }
                               },
@@ -2513,7 +2845,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-14"
+                                    "name": "panel-17"
                                   }
                                 }
                               }
@@ -2553,7 +2885,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-15"
+                                    "name": "panel-18"
                                   }
                                 }
                               },
@@ -2562,7 +2894,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-16"
+                                    "name": "panel-19"
                                   }
                                 }
                               }
@@ -2589,7 +2921,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-17"
+                                    "name": "panel-20"
                                   }
                                 }
                               },
@@ -2598,7 +2930,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-18"
+                                    "name": "panel-21"
                                   }
                                 }
                               }
@@ -2638,34 +2970,34 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-19"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "AutoGridLayoutItem",
-                                "spec": {
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-20"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "AutoGridLayoutItem",
-                                "spec": {
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-21"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "AutoGridLayoutItem",
-                                "spec": {
-                                  "element": {
-                                    "kind": "ElementReference",
                                     "name": "panel-22"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-23"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-24"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "AutoGridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-25"
                                   }
                                 }
                               }
@@ -2692,7 +3024,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-23"
+                                    "name": "panel-26"
                                   }
                                 }
                               },
@@ -2701,7 +3033,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-24"
+                                    "name": "panel-27"
                                   }
                                 }
                               }
@@ -2728,7 +3060,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-25"
+                                    "name": "panel-28"
                                   }
                                 }
                               },
@@ -2737,7 +3069,7 @@
                                 "spec": {
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-26"
+                                    "name": "panel-29"
                                   }
                                 }
                               }

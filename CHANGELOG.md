@@ -79,6 +79,11 @@ publishes the section matching the tag as the release notes.
   reads as `${TOKEN}` can come from a Secret.
 - The README and SECURITY.md say that `/metrics`, `/healthz` and `/readyz` are
   unauthenticated plain HTTP to keep on the monitoring network.
+- A History row on the dashboard's first tab, with one state timeline each for
+  unannounced failures, confirmed incidents and open maintenance windows, one
+  line per provider. The three stay separate series, and a gap means the
+  condition did not hold or was not evaluated, never a healthy state. It adds
+  no recording rule; re-upload the grafana.com listing to get it.
 - A Helm chart, published with each release to
   `oci://ghcr.io/adeleglise/charts/pssst` at the release's version. It renders
   the same objects as the kustomize base, and a test fails when they drift.
