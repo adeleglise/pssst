@@ -45,6 +45,30 @@ groups:
             and on (job, instance, psp) (psp:probe_collection_fresh == 1)
           )
 
+      # Observed only: the share of the last ten minutes the worst fresh
+      # endpoint spent succeeding. A value below 1 holds while another
+      # endpoint is unknown, which could only lower it; 1 needs every endpoint
+      # fresh, as for psp:observed_unavailable. Catches a probe failing often
+      # enough to matter but never long enough to outlast a for: timer.
+      - record: psp:probe_success_ratio_10m
+        expr: |
+          (
+            min by (job, instance, psp) (
+              avg_over_time(psp_probe_success[10m])
+              and on (job, instance, psp, endpoint) (psp_probe_last_collection_success_timestamp_seconds > 0)
+              and on (job, instance, psp, endpoint) (time() - psp_probe_last_collection_success_timestamp_seconds <= psp_probe_stale_after_seconds)
+            ) < 1
+          )
+          or
+          (
+            min by (job, instance, psp) (
+              avg_over_time(psp_probe_success[10m])
+              and on (job, instance, psp, endpoint) (psp_probe_last_collection_success_timestamp_seconds > 0)
+              and on (job, instance, psp, endpoint) (time() - psp_probe_last_collection_success_timestamp_seconds <= psp_probe_stale_after_seconds)
+            )
+            and on (job, instance, psp) (psp:probe_collection_fresh == 1)
+          )
+
       # A declared signal is meaningful only while its configured source has a
       # fresh snapshot; a failed poll keeps the last one until stale_after.
       # This rule is absent for status.type: none.
@@ -109,6 +133,21 @@ groups:
         annotations:
           summary: Observed PSP endpoint failure
           description: 'At least one configured endpoint for {{ $labels.psp }} on {{ $labels.instance }} has been unavailable for at least five minutes.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
+
+      # Observed only, like PSPObservedUnavailable. Above zero: a steady outage
+      # is that alert's case. An endpoint that goes down for good spends seven
+      # minutes between 0.7 and 0, under the 10m timer; a single outage of six
+      # to ten minutes does trip it, after PSPObservedUnavailable.
+      - alert: PSPObservedFlapping
+        expr: psp:probe_success_ratio_10m < 0.7 and psp:probe_success_ratio_10m > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Observed PSP endpoint failures come and go
+          description: 'At least one configured endpoint for {{ $labels.psp }} on {{ $labels.instance }} has failed more than 30% of its probes over ten minutes, for ten minutes.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedflapping
 
       - alert: PSPUnannouncedFailure
         expr: psp:unannounced_failure == 1
@@ -117,7 +156,8 @@ groups:
           severity: critical
         annotations:
           summary: PSP endpoint failure without a declared incident
-          description: '{{ $labels.psp }} is failing while its fresh official status source reports no incident.'
+          description: '{{ $labels.psp }} on {{ $labels.instance }} is failing while its fresh official status source reports no incident.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspunannouncedfailure
 
       - alert: PSPConfirmedIncident
         expr: psp:confirmed_incident == 1
@@ -126,7 +166,8 @@ groups:
           severity: critical
         annotations:
           summary: Confirmed PSP incident
-          description: '{{ $labels.psp }} has matching observed failure and a fresh declared incident.'
+          description: '{{ $labels.psp }} on {{ $labels.instance }} has matching observed failure and a fresh declared incident.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspconfirmedincident
 
       - alert: PSPStatusSourceUnavailable
         expr: psp:status_source_stale == 1
@@ -135,7 +176,8 @@ groups:
           severity: warning
         annotations:
           summary: PSP official status source is unavailable or stale
-          description: 'PSSST has no fresh complete official status snapshot for {{ $labels.psp }}.'
+          description: 'PSSST on {{ $labels.instance }} has no fresh complete official status snapshot for {{ $labels.psp }}.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspstatussourceunavailable
 
       - alert: PSPProbeCollectionUnavailable
         expr: psp:probe_collection_unavailable == 1
@@ -144,7 +186,8 @@ groups:
           severity: warning
         annotations:
           summary: Blackbox probe collection is unavailable
-          description: 'PSSST cannot obtain a valid Blackbox response for {{ $labels.psp }}.'
+          description: 'PSSST on {{ $labels.instance }} cannot obtain a valid Blackbox response for {{ $labels.psp }}.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspprobecollectionunavailable
 
       # Freshness only: one failed collection must not restart the 15m timer.
       - alert: PSPCertificateExpiringSoon
@@ -160,6 +203,7 @@ groups:
         annotations:
           summary: PSP endpoint certificate expires soon
           description: 'At least one observed certificate for {{ $labels.psp }} expires within 14 days.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspcertificateexpiringsoon
 
       # Freshness only, not psp:status_source_stale: one failed poll must not
       # restart the 15m timer.
@@ -178,3 +222,17 @@ groups:
         annotations:
           summary: PSP maintenance approaches
           description: '{{ $labels.psp }} has fresh declared maintenance scheduled within seven days.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspmaintenanceapproaching
+
+      # Every other rule reads psp_* series: without the exporter they all
+      # vanish and nothing fires. Fires only when no exporter is scraped at
+      # all; a per-replica up == 0 alert needs your own job name.
+      - alert: PSPExporterAbsent
+        expr: absent(psp_exporter_build_info)
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: PSSST exporter is not scraped
+          description: 'Prometheus has scraped no psp_exporter_build_info for ten minutes: every PSSST signal and alert is absent, which is not healthy.'
+          runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspexporterabsent
