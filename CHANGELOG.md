@@ -64,6 +64,10 @@ publishes the section matching the tag as the release notes.
 
 ### Changed
 
+- `polling.timeout` must now be at least `1s`, and a configuration below it
+  is rejected at startup. Blackbox subtracts 0.5s from the scrape timeout
+  PSSST now sends, and with nothing left it would report healthy targets as
+  failed.
 - The Datadog list ships 7 metrics, about 300 series for the shipped
   inventory, instead of 24 metrics and about 1,070 series. The README lists
   the opt-in extras and their cost.

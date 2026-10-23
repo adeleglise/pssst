@@ -182,7 +182,7 @@ psps:
 | `server.listen_address` | host:port, default `:9099`. |
 | `polling.status_interval` | Declared-source interval, default `60s`, at most 24h. |
 | `polling.probe_interval` | Blackbox interval, default `30s`. |
-| `polling.timeout` | Request deadline, default `10s`, no greater than either interval. |
+| `polling.timeout` | Request deadline, default `10s`, at least `1s`, no greater than either interval. |
 | `polling.jitter` | Startup and between-poll jitter, default `5s`, up to the smaller interval. |
 | `blackbox.base_url` | Blackbox base URL; required as soon as one probe exists. |
 | `blackbox.headers` | Optional bounded headers. |
@@ -204,7 +204,11 @@ probes each, 128 mapped components, 2 MiB per remote response. Each Blackbox
 request carries `X-Prometheus-Scrape-Timeout-Seconds` set to
 `polling.timeout`, as Prometheus does, so Blackbox stops a hung probe and
 reports it failed before PSSST gives up on the request. Set that header in
-`blackbox.headers` to send a different value.
+`blackbox.headers` to send a different value. Blackbox subtracts its
+`--timeout-offset`, 0.5s by default, from that value, and probes with no
+deadline left when the result is zero or less, reporting even a healthy
+target as failed: hence the 1s floor. If you raise that flag, keep
+`polling.timeout` comfortably above it.
 
 **Adding a provider.**
 
@@ -465,9 +469,10 @@ probes and collection health. See that directory's README to import it.
 
 ## Metrics reference
 
-Every metric has an explicit type. Labels come only from the configuration
-(`psp`, `endpoint`, `component`) or from documented enums (`kind`, `severity`,
-`outcome`, `version`). **Nothing remote ever becomes a label.**
+Every `psp_*` metric has an explicit type. Their labels come only from the
+configuration (`psp`, `endpoint`, `component`) or from documented enums
+(`kind`, `severity`, `outcome`, `version`). **Nothing remote ever becomes a
+label.**
 
 | Metric | Type | Meaning |
 | --- | --- | --- |
@@ -626,9 +631,14 @@ PSSST sends nothing anywhere on its own initiative, and has no telemetry.
   Nothing else. Redirects are refused, responses are capped at 2 MiB, and
   every request has a deadline.
 - **What it keeps**: the last snapshot of each source and probe, in memory.
-  It writes no file and holds no state across restarts. Besides its
-  configuration it reads only `/proc`: its own process entries and the boot
-  time in `/proc/stat`, for the `process_*` metrics.
+  It writes no file and holds no state across restarts.
+- **What it reads locally**: its configuration, the system CA bundle to verify
+  status pages, and the resolver files (`/etc/resolv.conf`, `/etc/hosts`).
+  For the `process_*` metrics it also reads its own entries under
+  `/proc/<pid>` and the boot time in `/proc/stat`. The
+  `process_network_*_bytes_total` series come from `/proc/<pid>/net/netstat`,
+  which counts the whole network namespace, the pod in Kubernetes, not the
+  exporter alone.
 - **What it exposes**: `/metrics`, `/healthz` and `/readyz` on
   `server.listen_address`. Labels come only from your configuration and
   documented enums, never from remote text, so a status page cannot inject a
