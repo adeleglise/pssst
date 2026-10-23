@@ -58,11 +58,32 @@ func TestChartRendersTheKustomizeBase(t *testing.T) {
 	if a, b := keys(base), keys(chart); !slices.Equal(a, b) {
 		t.Fatalf("objects differ:\nkustomize %v\nhelm      %v", a, b)
 	}
+	honorsLabels(t, "kustomize", base["ServiceMonitor/pssst"])
+	honorsLabels(t, "helm", chart["ServiceMonitor/pssst"])
 	for key, want := range base {
 		if got := chart[key]; !reflect.DeepEqual(got, want) {
 			w, _ := json.MarshalIndent(want, "", "  ")
 			g, _ := json.MarshalIndent(got, "", "  ")
 			t.Errorf("%s differs:\nkustomize %s\nhelm      %s", key, w, g)
+		}
+	}
+}
+
+// honorsLabels fails unless every endpoint of a rendered ServiceMonitor keeps
+// the exporter's labels. Otherwise the Operator's endpoint="metrics" renames
+// each probe's endpoint label, and the rules' per-endpoint freshness joins let
+// a fresh probe vouch for a stale one.
+func honorsLabels(t *testing.T, renderer string, monitor any) {
+	t.Helper()
+	object, _ := monitor.(map[string]any)
+	spec, _ := object["spec"].(map[string]any)
+	endpoints, _ := spec["endpoints"].([]any)
+	if len(endpoints) == 0 {
+		t.Fatalf("%s: ServiceMonitor/pssst is missing or has no endpoints", renderer)
+	}
+	for i, endpoint := range endpoints {
+		if e, _ := endpoint.(map[string]any); e["honorLabels"] != true {
+			t.Errorf("%s: ServiceMonitor/pssst endpoint %d does not set honorLabels: true", renderer, i)
 		}
 	}
 }

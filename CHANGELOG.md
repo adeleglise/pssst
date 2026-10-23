@@ -33,6 +33,18 @@ publishes the section matching the tag as the release notes.
   set to `polling.timeout`, unless `blackbox.headers` sets it, so a hang is
   reported as a failed probe. Module timeouts no longer need to stay below
   `polling.timeout`.
+- On the Prometheus Operator, the ServiceMonitor renamed each probe's
+  `endpoint` label to `exported_endpoint` and labelled every series
+  `endpoint="metrics"`. The rules match probes on `endpoint`, so a fresh probe
+  vouched for the stale failure of another endpoint of the same provider, and
+  `PSPObservedUnavailable` or `PSPUnannouncedFailure` could fire on a failure
+  no longer observed and never clear. Both ServiceMonitors now set
+  `honorLabels: true`: probe series carry their configured `endpoint` name and
+  `exported_endpoint` is gone, so a query or panel that read it must read
+  `endpoint`. Series without an endpoint, `psp_status_*` and `psp_declared_*`,
+  keep `endpoint="metrics"` from the Operator as before, and the declared rules
+  match on `job`, `instance` and `psp` only. A plain scrape config is
+  unaffected.
 
 ### Added
 
@@ -81,6 +93,24 @@ publishes the section matching the tag as the release notes.
 - `/metrics` exposes the standard `go_*` and `process_*` families for the
   exporter's own memory, goroutines and file descriptors. They are not in the
   Datadog list.
+- `PSPExporterAbsent`, critical after ten minutes without any
+  `psp_exporter_build_info`. An exporter that was down or not scraped took
+  every PSSST series with it, and no alert fired. It does not name a scrape
+  job; the README says how to add a per-replica `up == 0` alert on yours.
+- `PSPObservedFlapping`, a warning when an endpoint fails more than 30% of its
+  probes over ten minutes, for ten minutes, from the observed-only recording
+  rule `psp:probe_success_ratio_10m`. A probe failing every other minute reset
+  every `for` timer and never alerted.
+- `docs/runbook.md`, one section per alert: what it means, which signal to
+  read, the first checks, and why to note when the observed failure started.
+  Every alert links its section in `runbook_url`.
+- An Alertmanager example in the README: `info` routed away from the pager,
+  and the observed-only warnings inhibited while `PSPUnannouncedFailure` or
+  `PSPConfirmedIncident` fires for the same provider.
+- Rule tests for the `PSPStatusSourceUnavailable`,
+  `PSPProbeCollectionUnavailable` and `PSPObservedFlapping` timers, for a
+  `type: none` provider failing,
+  and for two endpoints of one provider with different freshness.
 
 ### Changed
 
@@ -104,6 +134,10 @@ publishes the section matching the tag as the release notes.
   published image.
 - The Dockerfile targets `exporter-nas` and `blackbox-nas` are now
   `exporter-bundled` and `blackbox-bundled`.
+- The descriptions of `PSPUnannouncedFailure`, `PSPConfirmedIncident`,
+  `PSPStatusSourceUnavailable` and `PSPProbeCollectionUnavailable` name the
+  exporter's `instance`, as `PSPObservedUnavailable` already did, so two
+  replicas' alerts read apart.
 
 ### Removed
 

@@ -338,8 +338,12 @@ docker run -d --name pssst --network pssst -p 127.0.0.1:9099:9099 \
 **Scrape.** On Kubernetes, the ServiceMonitor or the pod annotations cover it;
 make sure the ServiceMonitor's labels match your Prometheus's
 `serviceMonitorSelector` (kube-prometheus-stack selects `release: <name>` by
-default). Elsewhere, add the job in
-[deploy/prometheus/pssst-scrape.yml](deploy/prometheus/pssst-scrape.yml):
+default). The ServiceMonitor sets `honorLabels: true`: the Operator labels
+every target `endpoint="metrics"`, and without it each probe's own `endpoint`
+label would become `exported_endpoint`, so a fresh probe could vouch for a
+stale one. Elsewhere, add the job in
+[deploy/prometheus/pssst-scrape.yml](deploy/prometheus/pssst-scrape.yml); a
+plain scrape config adds no `endpoint` label and needs no change:
 
 ```yaml
 scrape_configs:
@@ -350,7 +354,7 @@ scrape_configs:
 ```
 
 **Rules and alerts.** [deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml)
-holds seven recording rules and seven alerts. Add it to `rule_files`, or with
+holds eight recording rules and nine alerts. Add it to `rule_files`, or with
 the Prometheus Operator wrap it in a PrometheusRule:
 
 ```sh
@@ -362,6 +366,7 @@ yq '{"apiVersion": "monitoring.coreos.com/v1", "kind": "PrometheusRule",
 | Rule | Value |
 | --- | --- |
 | `psp:observed_unavailable` | 1 when any fresh endpoint fails, 0 when all are fresh and up, absent when partly unknown. |
+| `psp:probe_success_ratio_10m` | Share of the last ten minutes' probes that succeeded, worst fresh endpoint. Observed only; 1 needs every endpoint fresh. |
 | `psp:declared_unavailable` | 1 or 0 while a configured source is fresh; absent for stale and `type: none`. |
 | `psp:confirmed_incident` | Both signals failing, unless a maintenance window is open with no incident declared. |
 | `psp:unannounced_failure` | Observed failing, declared fresh and quiet, no maintenance window. |
@@ -372,17 +377,43 @@ yq '{"apiVersion": "monitoring.coreos.com/v1", "kind": "PrometheusRule",
 | Alert | `for` | Severity |
 | --- | --- | --- |
 | `PSPObservedUnavailable` | 5m | warning |
+| `PSPObservedFlapping` (ratio under 0.7, above 0) | 10m | warning |
 | `PSPConfirmedIncident` | 5m | critical |
 | `PSPUnannouncedFailure` | 10m | critical |
 | `PSPProbeCollectionUnavailable` | 5m | warning |
 | `PSPStatusSourceUnavailable` | 10m | warning |
 | `PSPCertificateExpiringSoon` (14 days) | 15m | warning |
 | `PSPMaintenanceApproaching` (7 days) | 15m | info |
+| `PSPExporterAbsent` | 10m | critical |
+
+Each alert links its section of the [runbook](docs/runbook.md) in
+`runbook_url`: what it means, which signal to read, the first checks, and why
+to note when the observed failure started. `PSPExporterAbsent` fires only when
+no PSSST exporter is scraped at all; to catch one replica down among several,
+add an `up == 0` alert on your own scrape job's name.
 
 Freshness is the age of the last success, never the last attempt: one failed
 poll keeps the last observation and does not restart an alert timer. `job` and
 `instance` survive every aggregation, so two replicas never hide one another.
-Route on the `severity` label in Alertmanager.
+Route on the `severity` label in Alertmanager. For example, with `oncall` and
+`tickets` receivers of your own:
+
+```yaml
+route:
+  receiver: oncall
+  group_by: [alertname]
+  routes:
+    - matchers: ['severity="info"']
+      receiver: tickets          # maintenance notices never page
+inhibit_rules:
+  # Once a critical names the failure, the observed-only warnings repeat it.
+  - source_matchers: ['alertname=~"PSPUnannouncedFailure|PSPConfirmedIncident"']
+    target_matchers: ['alertname=~"PSPObservedUnavailable|PSPObservedFlapping"']
+    equal: [job, instance, psp]
+```
+
+Inhibition only silences a notification in Alertmanager; both signals stay in
+Prometheus, unmerged.
 
 ```promql
 psp:unannounced_failure == 1

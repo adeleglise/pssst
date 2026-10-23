@@ -182,6 +182,7 @@ tests:
             exp_annotations:
               summary: Observed PSP endpoint failure
               description: At least one configured endpoint for confirmed on a:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
           - exp_labels:
               job: pssst
               instance: a:9099
@@ -190,6 +191,7 @@ tests:
             exp_annotations:
               summary: Observed PSP endpoint failure
               description: At least one configured endpoint for unannounced on a:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
           - exp_labels:
               job: pssst
               instance: b:9099
@@ -198,6 +200,7 @@ tests:
             exp_annotations:
               summary: Observed PSP endpoint failure
               description: At least one configured endpoint for mixed_failed on b:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
       - eval_time: 6m
         alertname: PSPConfirmedIncident
         exp_alerts:
@@ -208,7 +211,8 @@ tests:
               severity: critical
             exp_annotations:
               summary: Confirmed PSP incident
-              description: confirmed has matching observed failure and a fresh declared incident.
+              description: confirmed on a:9099 has matching observed failure and a fresh declared incident.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspconfirmedincident
 
   - name: certificate and maintenance alert timers require fresh data
     interval: 1m
@@ -243,6 +247,7 @@ tests:
             exp_annotations:
               summary: PSP endpoint certificate expires soon
               description: At least one observed certificate for tls expires within 14 days.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspcertificateexpiringsoon
       - eval_time: 16m
         alertname: PSPMaintenanceApproaching
         exp_alerts:
@@ -254,6 +259,7 @@ tests:
             exp_annotations:
               summary: PSP maintenance approaches
               description: maintenance has fresh declared maintenance scheduled within seven days.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspmaintenanceapproaching
 
   - name: healthy startup and immediate mixed-collection transition
     interval: 30s
@@ -344,7 +350,8 @@ tests:
               severity: critical
             exp_annotations:
               summary: PSP endpoint failure without a declared incident
-              description: declared_flap is failing while its fresh official status source reports no incident.
+              description: declared_flap on d:9099 is failing while its fresh official status source reports no incident.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspunannouncedfailure
 
   # One failed collection at 3m keeps the last collected failure, 59s old
   # against a 315s limit. From 8m collection fails for good: the 421s
@@ -392,6 +399,7 @@ tests:
             exp_annotations:
               summary: Observed PSP endpoint failure
               description: At least one configured endpoint for collection_flap on d:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
 
   # PayPal never clears overall for an open window, and Statuspage may not flag
   # components. An open window is an announcement, not an incident: a failure
@@ -445,6 +453,7 @@ tests:
             exp_annotations:
               summary: Observed PSP endpoint failure
               description: At least one configured endpoint for maintenance_window on d:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
       - eval_time: 12m
         alertname: PSPConfirmedIncident
         exp_alerts: []
@@ -503,6 +512,7 @@ tests:
             exp_annotations:
               summary: Observed PSP endpoint failure
               description: At least one configured endpoint for maintenance_flagged on f:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
       - eval_time: 12m
         alertname: PSPConfirmedIncident
         exp_alerts: []
@@ -550,7 +560,8 @@ tests:
               severity: critical
             exp_annotations:
               summary: Confirmed PSP incident
-              description: maintenance_incident has matching observed failure and a fresh declared incident.
+              description: maintenance_incident on g:9099 has matching observed failure and a fresh declared incident.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspconfirmedincident
 
   # Polls fail from 2m. The 61s snapshot stays usable through 4m, then ages
   # past 225s: declared becomes unknown and nothing may be called unannounced.
@@ -634,6 +645,7 @@ tests:
             exp_annotations:
               summary: PSP endpoint certificate expires soon
               description: At least one observed certificate for tls expires within 14 days.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspcertificateexpiringsoon
       - eval_time: 16m
         alertname: PSPMaintenanceApproaching
         exp_alerts:
@@ -645,3 +657,339 @@ tests:
             exp_annotations:
               summary: PSP maintenance approaches
               description: maintenance has fresh declared maintenance scheduled within seven days.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspmaintenanceapproaching
+
+  # With honorLabels, each probe keeps its own endpoint label. The fresh
+  # success of one endpoint must not vouch for the stale failure of another:
+  # the PSP is partly unknown, not healthy and not failing.
+  - name: a fresh endpoint does not vouch for a stale one
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="h:9099",psp="two_endpoints",endpoint="api"}'
+        values: '1x14'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="h:9099",psp="two_endpoints",endpoint="api"}'
+        values: '1+60x14'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="h:9099",psp="two_endpoints",endpoint="api"}'
+        values: '135x14'
+      - series: 'psp_probe_success{job="pssst",instance="h:9099",psp="two_endpoints",endpoint="api"}'
+        values: '1x14'
+      - series: 'psp_probe_collection_up{job="pssst",instance="h:9099",psp="two_endpoints",endpoint="web"}'
+        values: '0x14'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="h:9099",psp="two_endpoints",endpoint="web"}'
+        values: '1x14'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="h:9099",psp="two_endpoints",endpoint="web"}'
+        values: '135x14'
+      - series: 'psp_probe_success{job="pssst",instance="h:9099",psp="two_endpoints",endpoint="web"}'
+        values: '0x14'
+    promql_expr_test:
+      - expr: psp:observed_unavailable
+        eval_time: 10m
+        exp_samples: []
+      - expr: psp:probe_success_ratio_10m
+        eval_time: 10m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PSPObservedUnavailable
+        exp_alerts: []
+
+  # The source fails from the start; another misses one poll at 3m. Only the
+  # first warns, and only once its 10m timer has run.
+  - name: a status source warns after ten minutes, not after one failed poll
+    interval: 1m
+    input_series:
+      - series: 'psp_status_source_configured{job="pssst",instance="h:9099",psp="source_down"}'
+        values: '1x14'
+      - series: 'psp_status_source_up{job="pssst",instance="h:9099",psp="source_down"}'
+        values: '0x14'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="h:9099",psp="source_down"}'
+        values: '0x14'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="h:9099",psp="source_down"}'
+        values: '225x14'
+      - series: 'psp_status_source_configured{job="pssst",instance="h:9099",psp="source_miss"}'
+        values: '1x14'
+      - series: 'psp_status_source_up{job="pssst",instance="h:9099",psp="source_miss"}'
+        values: '1 1 1 0 1 1 1 1 1 1 1 1 1 1 1'
+      - series: 'psp_status_source_last_success_timestamp_seconds{job="pssst",instance="h:9099",psp="source_miss"}'
+        values: '1 61 121 121 241 301 361 421 481 541 601 661 721 781 841'
+      - series: 'psp_status_source_stale_after_seconds{job="pssst",instance="h:9099",psp="source_miss"}'
+        values: '225x14'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: PSPStatusSourceUnavailable
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PSPStatusSourceUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: h:9099
+              psp: source_down
+              severity: warning
+            exp_annotations:
+              summary: PSP official status source is unavailable or stale
+              description: PSSST on h:9099 has no fresh complete official status snapshot for source_down.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspstatussourceunavailable
+
+  # Blackbox never answers for one provider and misses one collection at 2m
+  # for another. Only the first warns, after five minutes.
+  - name: probe collection warns after five minutes, not after one failure
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="h:9099",psp="collection_down",endpoint="api"}'
+        values: '0x9'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="h:9099",psp="collection_down",endpoint="api"}'
+        values: '0x9'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="h:9099",psp="collection_down",endpoint="api"}'
+        values: '315x9'
+      - series: 'psp_probe_collection_up{job="pssst",instance="h:9099",psp="collection_miss",endpoint="api"}'
+        values: '1 1 0 1 1 1 1 1 1 1'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="h:9099",psp="collection_miss",endpoint="api"}'
+        values: '1 61 61 181 241 301 361 421 481 541'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="h:9099",psp="collection_miss",endpoint="api"}'
+        values: '315x9'
+      - series: 'psp_probe_success{job="pssst",instance="h:9099",psp="collection_miss",endpoint="api"}'
+        values: '1x9'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: PSPProbeCollectionUnavailable
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: PSPProbeCollectionUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: h:9099
+              psp: collection_down
+              severity: warning
+            exp_annotations:
+              summary: Blackbox probe collection is unavailable
+              description: PSSST on h:9099 cannot obtain a valid Blackbox response for collection_down.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspprobecollectionunavailable
+
+  # With type: none there is no declared signal to agree or disagree with. A
+  # fresh failing probe is an observed failure and nothing more.
+  - name: an observed failure without a declared source only warns
+    interval: 1m
+    input_series:
+      - series: 'psp_status_source_configured{job="pssst",instance="h:9099",psp="undeclared"}'
+        values: '0x14'
+      - series: 'psp_probe_collection_up{job="pssst",instance="h:9099",psp="undeclared",endpoint="api"}'
+        values: '1x14'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="h:9099",psp="undeclared",endpoint="api"}'
+        values: '1+60x14'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="h:9099",psp="undeclared",endpoint="api"}'
+        values: '315x14'
+      - series: 'psp_probe_success{job="pssst",instance="h:9099",psp="undeclared",endpoint="api"}'
+        values: '0x14'
+    promql_expr_test:
+      - expr: psp:declared_unavailable
+        eval_time: 10m
+        exp_samples: []
+      - expr: psp:status_source_stale
+        eval_time: 10m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PSPObservedUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: h:9099
+              psp: undeclared
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for undeclared on h:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
+      - eval_time: 12m
+        alertname: PSPUnannouncedFailure
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: PSPConfirmedIncident
+        exp_alerts: []
+
+  # A probe failing every other minute never stays down five minutes, so
+  # PSPObservedUnavailable never fires; the ratio catches it. In the band
+  # from 1m, it fires at 11m and not at 10m. A steady outage is that alert's
+  # case, and an endpoint going down for good crosses the flapping band in
+  # seven minutes, under the 10m timer: at 18m it is still in the band and
+  # silent.
+  # A healthy endpoint next to an unknown one is unknown, not 1.
+  - name: a flapping probe warns, a steady one does not
+    interval: 1m
+    input_series:
+      - series: 'psp_probe_collection_up{job="pssst",instance="j:9099",psp="flapping",endpoint="api"}'
+        values: '1x25'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="j:9099",psp="flapping",endpoint="api"}'
+        values: '1+60x25'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="j:9099",psp="flapping",endpoint="api"}'
+        values: '315x25'
+      - series: 'psp_probe_success{job="pssst",instance="j:9099",psp="flapping",endpoint="api"}'
+        values: '0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1'
+      - series: 'psp_probe_collection_up{job="pssst",instance="j:9099",psp="steady_up",endpoint="api"}'
+        values: '1x25'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="j:9099",psp="steady_up",endpoint="api"}'
+        values: '1+60x25'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="j:9099",psp="steady_up",endpoint="api"}'
+        values: '315x25'
+      - series: 'psp_probe_success{job="pssst",instance="j:9099",psp="steady_up",endpoint="api"}'
+        values: '1x25'
+      - series: 'psp_probe_collection_up{job="pssst",instance="j:9099",psp="steady_down",endpoint="api"}'
+        values: '1x25'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="j:9099",psp="steady_down",endpoint="api"}'
+        values: '1+60x25'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="j:9099",psp="steady_down",endpoint="api"}'
+        values: '315x25'
+      - series: 'psp_probe_success{job="pssst",instance="j:9099",psp="steady_down",endpoint="api"}'
+        values: '0x25'
+      - series: 'psp_probe_collection_up{job="pssst",instance="j:9099",psp="goes_down",endpoint="api"}'
+        values: '1x25'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="j:9099",psp="goes_down",endpoint="api"}'
+        values: '1+60x25'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="j:9099",psp="goes_down",endpoint="api"}'
+        values: '315x25'
+      - series: 'psp_probe_success{job="pssst",instance="j:9099",psp="goes_down",endpoint="api"}'
+        values: '1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+      - series: 'psp_probe_collection_up{job="pssst",instance="j:9099",psp="partly_unknown",endpoint="known"}'
+        values: '1x25'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="j:9099",psp="partly_unknown",endpoint="known"}'
+        values: '1+60x25'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="j:9099",psp="partly_unknown",endpoint="known"}'
+        values: '315x25'
+      - series: 'psp_probe_success{job="pssst",instance="j:9099",psp="partly_unknown",endpoint="known"}'
+        values: '1x25'
+      - series: 'psp_probe_collection_up{job="pssst",instance="j:9099",psp="partly_unknown",endpoint="unknown"}'
+        values: '0x25'
+      - series: 'psp_probe_last_collection_success_timestamp_seconds{job="pssst",instance="j:9099",psp="partly_unknown",endpoint="unknown"}'
+        values: '0x25'
+      - series: 'psp_probe_stale_after_seconds{job="pssst",instance="j:9099",psp="partly_unknown",endpoint="unknown"}'
+        values: '315x25'
+      - series: 'psp_probe_success{job="pssst",instance="j:9099",psp="partly_unknown",endpoint="unknown"}'
+        values: '0x25'
+    promql_expr_test:
+      - expr: psp:probe_success_ratio_10m
+        eval_time: 15m
+        exp_samples:
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="flapping"}'
+            value: 0.5
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="steady_up"}'
+            value: 1
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="steady_down"}'
+            value: 0
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="goes_down"}'
+            value: 0.4
+      - expr: psp:probe_success_ratio_10m
+        eval_time: 18m
+        exp_samples:
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="flapping"}'
+            value: 0.5
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="steady_up"}'
+            value: 1
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="steady_down"}'
+            value: 0
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="goes_down"}'
+            value: 0.1
+      - expr: psp:probe_success_ratio_10m
+        eval_time: 22m
+        exp_samples:
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="flapping"}'
+            value: 0.5
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="steady_up"}'
+            value: 1
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="steady_down"}'
+            value: 0
+          - labels: 'psp:probe_success_ratio_10m{job="pssst",instance="j:9099",psp="goes_down"}'
+            value: 0
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PSPObservedFlapping
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: PSPObservedFlapping
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: j:9099
+              psp: flapping
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failures come and go
+              description: At least one configured endpoint for flapping on j:9099 has failed more than 30% of its probes over ten minutes, for ten minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedflapping
+      - eval_time: 18m
+        alertname: PSPObservedFlapping
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: j:9099
+              psp: flapping
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failures come and go
+              description: At least one configured endpoint for flapping on j:9099 has failed more than 30% of its probes over ten minutes, for ten minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedflapping
+      - eval_time: 24m
+        alertname: PSPObservedFlapping
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: j:9099
+              psp: flapping
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failures come and go
+              description: At least one configured endpoint for flapping on j:9099 has failed more than 30% of its probes over ten minutes, for ten minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedflapping
+      - eval_time: 24m
+        alertname: PSPObservedUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: pssst
+              instance: j:9099
+              psp: steady_down
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for steady_down on j:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
+          - exp_labels:
+              job: pssst
+              instance: j:9099
+              psp: goes_down
+              severity: warning
+            exp_annotations:
+              summary: Observed PSP endpoint failure
+              description: At least one configured endpoint for goes_down on j:9099 has been unavailable for at least five minutes.
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspobservedunavailable
+
+  # No psp_* series at all: the exporter is down or not scraped. Every other
+  # rule is silent, so this one must not be.
+  - name: a missing exporter is critical, not silent
+    interval: 1m
+    input_series:
+      - series: 'up{job="pssst",instance="k:9099"}'
+        values: '0x14'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: PSPExporterAbsent
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PSPExporterAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: PSSST exporter is not scraped
+              description: 'Prometheus has scraped no psp_exporter_build_info for ten minutes: every PSSST signal and alert is absent, which is not healthy.'
+              runbook_url: https://github.com/adeleglise/pssst/blob/main/docs/runbook.md#pspexporterabsent
+
+  - name: a scraped exporter is not absent
+    interval: 1m
+    input_series:
+      - series: 'psp_exporter_build_info{job="pssst",instance="k:9099",version="1.0.0"}'
+        values: '1x14'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PSPExporterAbsent
+        exp_alerts: []

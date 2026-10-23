@@ -12,7 +12,12 @@ spec:
     matchLabels:
       app.kubernetes.io/name: pssst
   endpoints:
+    # The Operator labels each target endpoint="metrics". Without honorLabels
+    # the exporter's own endpoint label becomes exported_endpoint, and the
+    # rules' per-endpoint freshness joins let a fresh probe vouch for a stale
+    # one. The exporter sets no job, instance or Kubernetes label to override.
     - port: metrics
+      honorLabels: true
       path: /metrics
       interval: 30s
       scrapeTimeout: 10s
