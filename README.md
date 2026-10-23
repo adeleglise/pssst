@@ -200,8 +200,11 @@ psps:
 The file is strict: unknown and duplicate fields are rejected and it is capped
 at 1 MiB. `${NAME}` expands from the environment in values, an unset name
 being an error, so tokens stay out of the file. Bounds: 128 providers, 32
-probes each, 128 mapped components, 2 MiB per remote response. Keep every
-Blackbox module timeout below `polling.timeout`.
+probes each, 128 mapped components, 2 MiB per remote response. Each Blackbox
+request carries `X-Prometheus-Scrape-Timeout-Seconds` set to
+`polling.timeout`, as Prometheus does, so Blackbox stops a hung probe and
+reports it failed before PSSST gives up on the request. Set that header in
+`blackbox.headers` to send a different value.
 
 **Adding a provider.**
 
@@ -607,8 +610,6 @@ image.
   those series export 0.
 - An open maintenance window mutes the unannounced signal for the whole
   provider, even when it covers an unrelated component.
-- The Blackbox request carries no scrape-timeout header, so module timeouts
-  must stay below `polling.timeout`.
 - No NetworkPolicy ships with the Kubernetes manifests.
 
 ## Security and what it reads

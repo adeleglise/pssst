@@ -22,6 +22,13 @@ publishes the section matching the tag as the release notes.
 - The Datadog check tagged every series with its scrape URL, which carries the
   pod IP, so each reschedule created a new set of billed series under an
   `endpoint` tag that collided with PSSST's own. `tag_by_endpoint` is now off.
+- A probe whose target hung kept its last `probe_success` of 1 until it went
+  stale, so `psp:unannounced_failure` never fired for a hung API: Blackbox,
+  told no scrape timeout, outlived PSSST's request and the collection failed
+  instead. Each Blackbox request now sends `X-Prometheus-Scrape-Timeout-Seconds`
+  set to `polling.timeout`, unless `blackbox.headers` sets it, so a hang is
+  reported as a failed probe. Module timeouts no longer need to stay below
+  `polling.timeout`.
 
 ### Added
 
