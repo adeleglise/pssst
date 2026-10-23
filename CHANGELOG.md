@@ -22,6 +22,13 @@ publishes the section matching the tag as the release notes.
 - The Datadog check tagged every series with its scrape URL, which carries the
   pod IP, so each reschedule created a new set of billed series under an
   `endpoint` tag that collided with PSSST's own. `tag_by_endpoint` is now off.
+- A probe whose target hung kept its last `probe_success` of 1 until it went
+  stale, so `psp:unannounced_failure` never fired for a hung API: Blackbox,
+  told no scrape timeout, outlived PSSST's request and the collection failed
+  instead. Each Blackbox request now sends `X-Prometheus-Scrape-Timeout-Seconds`
+  set to `polling.timeout`, unless `blackbox.headers` sets it, so a hang is
+  reported as a failed probe. Module timeouts no longer need to stay below
+  `polling.timeout`.
 
 ### Added
 
@@ -56,9 +63,16 @@ publishes the section matching the tag as the release notes.
   source fails.
 - Tests for the HTTP client's bounds, the adapter registry, freshness, and a
   check that every name in the Datadog list is a real metric.
+- `/metrics` exposes the standard `go_*` and `process_*` families for the
+  exporter's own memory, goroutines and file descriptors. They are not in the
+  Datadog list.
 
 ### Changed
 
+- `polling.timeout` must now be at least `1s`, and a configuration below it
+  is rejected at startup. Blackbox subtracts 0.5s from the scrape timeout
+  PSSST now sends, and with nothing left it would report healthy targets as
+  failed.
 - The Datadog list ships 7 metrics, about 300 series for the shipped
   inventory, instead of 24 metrics and about 1,070 series. The README lists
   the opt-in extras and their cost.

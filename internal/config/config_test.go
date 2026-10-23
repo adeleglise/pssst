@@ -36,6 +36,15 @@ func TestDefaults(t *testing.T) {
 		t.Fatal("lost mapping")
 	}
 }
+func TestTimeoutFloorIsAccepted(t *testing.T) {
+	c, err := Parse([]byte("polling:\n  timeout: 1s\n" + valid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Polling.Timeout != MinTimeout {
+		t.Fatalf("timeout = %s", c.Polling.Timeout)
+	}
+}
 func TestRejectInvalidConfig(t *testing.T) {
 	cases := map[string]string{
 		"unknown":                  valid + "typo: true\n",
@@ -50,6 +59,8 @@ func TestRejectInvalidConfig(t *testing.T) {
 		"negative":                 "polling:\n  timeout: -1s\n" + valid,
 		"zero":                     "polling:\n  status_interval: 0s\n" + valid,
 		"timeout exceeds interval": "polling:\n  timeout: 90s\n" + valid,
+		"timeout at offset":        "polling:\n  timeout: 500ms\n" + valid,
+		"timeout below floor":      "polling:\n  timeout: 999ms\n" + valid,
 		"bad duration":             "polling:\n  timeout: banana\n" + valid,
 		"document":                 valid + "---\n" + valid,
 		"empty document":           valid + "---\n",

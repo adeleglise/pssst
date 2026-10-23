@@ -76,6 +76,40 @@ func TestProbeDistinguishesProbeFailureFromCollectionFailure(t *testing.T) {
 	}
 }
 
+func TestProbeSendsPollingTimeoutAsScrapeTimeout(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		headers map[string]string
+		want    string
+	}{
+		"from polling.timeout":      {want: "1.5"},
+		"configured header wins":    {headers: map[string]string{"x-prometheus-scrape-timeout-seconds": "4"}, want: "4"},
+		"other headers still apply": {headers: map[string]string{"X-Adapter-Token": "secret"}, want: "1.5"},
+	}
+	for name, tc := range tests {
+		name, tc := name, tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if got := r.Header.Values("X-Prometheus-Scrape-Timeout-Seconds"); len(got) != 1 || got[0] != tc.want {
+					t.Errorf("scrape timeout header = %q, want [%q]", got, tc.want)
+				}
+				for header, value := range tc.headers {
+					if got := r.Header.Get(header); got != value {
+						t.Errorf("header %s = %q, want %q", header, got, value)
+					}
+				}
+				_, _ = w.Write([]byte("probe_success 1\nprobe_duration_seconds 0.01\n"))
+			}))
+			defer server.Close()
+
+			if _, err := blackbox.New(server.URL, tc.headers, 1500*time.Millisecond).Probe(context.Background(), "http_2xx", "https://api.example.test"); err != nil {
+				t.Fatalf("Probe() error = %v", err)
+			}
+		})
+	}
+}
+
 func TestProbeRejectsInvalidSelectedMetrics(t *testing.T) {
 	t.Parallel()
 	tests := map[string]string{

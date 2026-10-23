@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,11 @@ const (
 	metricDuration   = "probe_duration_seconds"
 	metricHTTPStatus = "probe_http_status_code"
 	metricCertExpiry = "probe_ssl_earliest_cert_expiry"
+
+	// scrapeTimeoutHeader is the header Prometheus sends with each scrape.
+	// Blackbox bounds a probe by it, less a small offset, so a hung target
+	// reads as probe_success 0 before this client gives up on the request.
+	scrapeTimeoutHeader = "X-Prometheus-Scrape-Timeout-Seconds"
 )
 
 // Client queries one Blackbox Exporter /probe response at a time.
@@ -30,13 +36,27 @@ type Client struct {
 	http    *httpclient.Client
 }
 
+// New sends timeout to Blackbox as the scrape timeout, unless headers already
+// set one.
 func New(baseURL string, headers map[string]string, timeout time.Duration) *Client {
 	_, err := probeEndpoint(baseURL, "", "")
 	return &Client{
 		baseURL: baseURL,
 		baseOK:  err == nil,
-		http:    httpclient.New(timeout, headers),
+		http:    httpclient.New(timeout, withScrapeTimeout(headers, timeout)),
 	}
+}
+
+func withScrapeTimeout(headers map[string]string, timeout time.Duration) map[string]string {
+	out := make(map[string]string, len(headers)+1)
+	for name, value := range headers {
+		if strings.EqualFold(name, scrapeTimeoutHeader) {
+			return headers
+		}
+		out[name] = value
+	}
+	out[scrapeTimeoutHeader] = strconv.FormatFloat(timeout.Seconds(), 'f', -1, 64)
+	return out
 }
 
 func (c *Client) Probe(ctx context.Context, module, target string) (Result, error) {
