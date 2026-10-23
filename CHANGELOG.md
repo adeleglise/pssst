@@ -6,6 +6,8 @@ publishes the section matching the tag as the release notes.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-23
+
 ### Fixed
 
 - A release tag no longer publishes the `X.Y.Z`, `X.Y` and `latest` images on
