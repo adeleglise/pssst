@@ -10,9 +10,16 @@ Read every declared source once, as the exporter sees it:
 
   kubectl -n {{ .Release.Namespace }} exec deploy/pssst -- /pssst-check -config /etc/pssst/config.yml
 
-The correlation lives in Prometheus rules, not in the exporter. Load
-https://github.com/adeleglise/pssst/blob/main/deploy/prometheus/pssst.yml
-to get psp:unannounced_failure and psp:confirmed_incident.
+The correlation lives in Prometheus rules, not in the exporter.
+{{- if .Values.prometheusRule.enabled }}
+This release installed them as the PrometheusRule pssst: psp:unannounced_failure
+and psp:confirmed_incident.
+{{- else }}
+Load the rules of this release to get psp:unannounced_failure and
+psp:confirmed_incident, either with --set prometheusRule.enabled=true
+(Prometheus Operator) or from
+https://github.com/adeleglise/pssst/blob/{{ if eq .Chart.AppVersion "edge" }}main{{ else }}v{{ .Chart.AppVersion }}{{ end }}/deploy/prometheus/pssst.yml
+{{- end }}
 {{- if not .Values.inventory }}
 
 This release runs the default inventory. Pass your own with

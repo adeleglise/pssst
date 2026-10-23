@@ -234,8 +234,22 @@ helm install pssst oci://ghcr.io/adeleglise/charts/pssst --version 1.1.0 \
 Without `inventory`, it runs the default inventory. Set `blackbox.base_url` in
 yours to `http://pssst-blackbox:9115`. The ServiceMonitor is off by default so
 the chart installs without the Prometheus Operator; turn it on with
-`--set serviceMonitor.enabled=true`. Every value is in
+`--set serviceMonitor.enabled=true`, and add
+`--set serviceMonitor.additionalLabels.release=<your Prometheus release>` when
+your Prometheus selects ServiceMonitors by label. The correlation rules are
+off too: `--set prometheusRule.enabled=true` installs them as a PrometheusRule,
+copied from the same release as the image. Every value is in
 [deploy/helm/pssst/README.md](deploy/helm/pssst/README.md).
+
+A header token stays out of the inventory with `${TOKEN}`; give the pod the
+variable from a Secret you created:
+
+```yaml
+# values.yaml
+envFrom:
+  - secretRef:
+      name: pssst-tokens
+```
 
 ## Deploy on Kubernetes
 
@@ -285,6 +299,7 @@ What you get:
 | ConfigMap | `pssst-config-<hash>` | Your inventory as `config.yml`. The hash rolls the pods when it changes. |
 | ConfigMap | `pssst-blackbox-config-<hash>` | The Blackbox modules. |
 | ServiceMonitor | `pssst` | For the Prometheus Operator: 30s interval, 10s timeout. |
+| NetworkPolicy | `pssst-blackbox` | Ingress to Blackbox on TCP 9115 only from the `pssst` pods. See [Security and what it reads](#security-and-what-it-reads). |
 
 The `pssst` pod also carries `prometheus.io/*` annotations for an annotation-
 based Prometheus and the Datadog Autodiscovery check described below.
@@ -344,7 +359,9 @@ scrape_configs:
 
 **Rules and alerts.** [deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml)
 holds seven recording rules and seven alerts. Add it to `rule_files`, or with
-the Prometheus Operator wrap it in a PrometheusRule:
+the Prometheus Operator, install it with the chart
+(`--set prometheusRule.enabled=true`, plus `prometheusRule.additionalLabels`
+if your Prometheus selects rules by label) or wrap it in a PrometheusRule:
 
 ```sh
 yq '{"apiVersion": "monitoring.coreos.com/v1", "kind": "PrometheusRule",
@@ -609,7 +626,9 @@ image.
   provider, even when it covers an unrelated component.
 - The Blackbox request carries no scrape-timeout header, so module timeouts
   must stay below `polling.timeout`.
-- No NetworkPolicy ships with the Kubernetes manifests.
+- The NetworkPolicy covers ingress to Blackbox only, and only where the CNI
+  enforces NetworkPolicy. The exporter has none, and neither policy limits
+  egress.
 
 ## Security and what it reads
 
@@ -622,9 +641,16 @@ PSSST sends nothing anywhere on its own initiative, and has no telemetry.
 - **What it keeps**: the last snapshot of each source and probe, in memory.
   It writes no file and holds no state across restarts.
 - **What it exposes**: `/metrics`, `/healthz` and `/readyz` on
-  `server.listen_address`. Labels come only from your configuration and
-  documented enums, never from remote text, so a status page cannot inject a
-  label or inflate cardinality.
+  `server.listen_address`, as unauthenticated plain HTTP. Keep them on the
+  monitoring network; if you need TLS or authentication, put a proxy or a
+  sidecar in front. Labels come only from your configuration and documented
+  enums, never from remote text, so a status page cannot inject a label or
+  inflate cardinality.
+- **Blackbox**: it probes whatever `?target=` it is asked for, so any pod that
+  reaches it can use it as a probe proxy. The Kubernetes manifests and the
+  chart ship a NetworkPolicy that admits only the `pssst` pods on port 9115;
+  it needs a CNI that enforces NetworkPolicy. Elsewhere, publish no port for
+  it, as the Compose stack does.
 - **Credentials**: none are needed. Headers you configure can read from the
   environment with `${NAME}`, so tokens stay out of the file.
 - **Container**: non-root, read-only root filesystem, no capabilities, no

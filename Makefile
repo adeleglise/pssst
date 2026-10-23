@@ -74,6 +74,7 @@ smoke:
 chart-sync:
 	cp deploy/pssst.psp.yml deploy/helm/pssst/files/pssst.psp.yml
 	cp deploy/blackbox/blackbox.yml deploy/helm/pssst/files/blackbox.yml
+	cp deploy/prometheus/pssst.yml deploy/helm/pssst/files/pssst.yml
 
 # Needs helm, and kustomize or kubectl: renders the chart and the kustomize
 # base and fails on any difference between them.

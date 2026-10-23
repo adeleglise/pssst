@@ -16,6 +16,14 @@ inventory: ""
 
 logLevel: info
 
+# Extra environment for the exporter, rendered after PSSST_LOG_LEVEL. The
+# inventory reads ${NAME} in header values, so a token stays out of the file:
+#   envFrom:
+#     - secretRef:
+#         name: pssst-tokens
+extraEnv: []
+envFrom: []
+
 resources:
   requests:
     cpu: 50m
@@ -43,6 +51,24 @@ serviceMonitor:
   enabled: false
   interval: 30s
   scrapeTimeout: 10s
+  # Labels your Prometheus selects on; kube-prometheus-stack ignores a
+  # ServiceMonitor without release: <its release name> by default.
+  additionalLabels: {}
+
+# The correlation rules as a PrometheusRule, copied from deploy/prometheus/
+# pssst.yml of the same release. Off by default for the same reason as the
+# ServiceMonitor: the CRD may not exist.
+prometheusRule:
+  enabled: false
+  # Defaults to the release namespace.
+  namespace: ""
+  additionalLabels: {}
+
+# Blackbox Exporter probes any target it is asked for. This lets only PSSST's
+# pods reach it (ingress on 9115, nothing else). Needs a CNI that enforces
+# NetworkPolicy; others ignore the object.
+networkPolicy:
+  enabled: true
 
 # Datadog Autodiscovery annotation. Custom metrics are billed per series, so
 # the list is explicit and minimal; the README lists opt-in extras and their
