@@ -30,6 +30,12 @@
     },
     {
       "type": "panel",
+      "id": "state-timeline",
+      "name": "State timeline",
+      "version": ""
+    },
+    {
+      "type": "panel",
       "id": "table",
       "name": "Table",
       "version": ""
@@ -808,17 +814,269 @@
     {
       "id": 114,
       "type": "row",
-      "collapsed": true,
-      "title": "Declared · Declared state",
+      "collapsed": false,
+      "title": "Overview · History",
       "gridPos": {
         "x": 0,
         "y": 27,
         "w": 24,
         "h": 1
       },
+      "panels": []
+    },
+    {
+      "id": 115,
+      "type": "state-timeline",
+      "title": "Unannounced failures over time",
+      "description": "One line per provider, coloured while the observed failure is not announced. A gap means the condition did not hold, or was not evaluated.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "psp:unannounced_failure == 1",
+          "legendFormat": "{{psp}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UNANNOUNCED",
+                  "color": "red",
+                  "index": 0
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "transformations": []
+    },
+    {
+      "id": 116,
+      "type": "state-timeline",
+      "title": "Confirmed incidents over time",
+      "description": "One line per provider, coloured while the observed failure and the declared incident coincide.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "psp:confirmed_incident == 1",
+          "legendFormat": "{{psp}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "CONFIRMED",
+                  "color": "red",
+                  "index": 0
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "transformations": []
+    },
+    {
+      "id": 117,
+      "type": "state-timeline",
+      "title": "Maintenance in progress over time",
+      "description": "One line per provider, coloured while a maintenance window is open.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "psp_maintenance_active > 0",
+          "legendFormat": "{{psp}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 1,
+                "to": 1000000,
+                "result": {
+                  "text": "MAINTENANCE",
+                  "color": "blue",
+                  "index": 0
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "transformations": []
+    },
+    {
+      "id": 118,
+      "type": "row",
+      "collapsed": true,
+      "title": "Declared · Declared state",
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 24,
+        "h": 1
+      },
       "panels": [
         {
-          "id": 115,
+          "id": 119,
           "type": "table",
           "title": "State per component",
           "description": "overall is the page's rollup: any component not operational forces it to zero.",
@@ -828,7 +1086,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 28,
+            "y": 47,
             "w": 12,
             "h": 12
           },
@@ -920,7 +1178,7 @@
           ]
         },
         {
-          "id": 116,
+          "id": 120,
           "type": "table",
           "title": "Source freshness",
           "description": "Time since the last complete and valid snapshot.",
@@ -930,7 +1188,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 28,
+            "y": 47,
             "w": 12,
             "h": 12
           },
@@ -990,19 +1248,19 @@
       ]
     },
     {
-      "id": 117,
+      "id": 121,
       "type": "row",
       "collapsed": true,
       "title": "Declared · Trends",
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 59,
         "w": 24,
         "h": 1
       },
       "panels": [
         {
-          "id": 118,
+          "id": 122,
           "type": "timeseries",
           "title": "Declared incidents by severity",
           "description": "Normalized severities: none, minor, major, critical, unknown.",
@@ -1012,7 +1270,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 41,
+            "y": 60,
             "w": 12,
             "h": 10
           },
@@ -1068,7 +1326,7 @@
           "transformations": []
         },
         {
-          "id": 119,
+          "id": 123,
           "type": "timeseries",
           "title": "Declared source reachable",
           "description": "1 when the last call produced a complete snapshot.",
@@ -1078,7 +1336,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 41,
+            "y": 60,
             "w": 12,
             "h": 10
           },
@@ -1136,19 +1394,19 @@
       ]
     },
     {
-      "id": 120,
+      "id": 124,
       "type": "row",
       "collapsed": true,
       "title": "Observed · Probe results",
       "gridPos": {
         "x": 0,
-        "y": 51,
+        "y": 70,
         "w": 24,
         "h": 1
       },
       "panels": [
         {
-          "id": 121,
+          "id": 125,
           "type": "table",
           "title": "Last result",
           "description": "Result reported by Blackbox, independent of what the provider declares.",
@@ -1158,7 +1416,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 52,
+            "y": 71,
             "w": 12,
             "h": 12
           },
@@ -1250,7 +1508,7 @@
           ]
         },
         {
-          "id": 122,
+          "id": 126,
           "type": "table",
           "title": "Certificate expiry",
           "description": "Only TLS probes feed this table.",
@@ -1260,7 +1518,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 52,
+            "y": 71,
             "w": 12,
             "h": 12
           },
@@ -1320,19 +1578,19 @@
       ]
     },
     {
-      "id": 123,
+      "id": 127,
       "type": "row",
       "collapsed": true,
       "title": "Observed · Detail",
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 83,
         "w": 24,
         "h": 1
       },
       "panels": [
         {
-          "id": 124,
+          "id": 128,
           "type": "timeseries",
           "title": "Probe latency",
           "description": "Duration measured by Blackbox for the last collected probe.",
@@ -1342,7 +1600,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 65,
+            "y": 84,
             "w": 12,
             "h": 10
           },
@@ -1398,7 +1656,7 @@
           "transformations": []
         },
         {
-          "id": 125,
+          "id": 129,
           "type": "table",
           "title": "Last HTTP status",
           "description": "Zero means no HTTP response. TLS probes produce none.",
@@ -1408,7 +1666,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 65,
+            "y": 84,
             "w": 12,
             "h": 10
           },
@@ -1467,19 +1725,19 @@
       ]
     },
     {
-      "id": 126,
+      "id": 130,
       "type": "row",
       "collapsed": true,
       "title": "Collection health · Our ability to measure",
       "gridPos": {
         "x": 0,
-        "y": 75,
+        "y": 94,
         "w": 24,
         "h": 1
       },
       "panels": [
         {
-          "id": 127,
+          "id": 131,
           "type": "stat",
           "title": "Blackbox collections unavailable",
           "description": "PSSST cannot get a valid answer from Blackbox.",
@@ -1489,7 +1747,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 76,
+            "y": 95,
             "w": 6,
             "h": 4
           },
@@ -1543,7 +1801,7 @@
           "transformations": []
         },
         {
-          "id": 128,
+          "id": 132,
           "type": "stat",
           "title": "Probes never collected",
           "description": "No valid collection since startup.",
@@ -1553,7 +1811,7 @@
           },
           "gridPos": {
             "x": 6,
-            "y": 76,
+            "y": 95,
             "w": 6,
             "h": 4
           },
@@ -1607,7 +1865,7 @@
           "transformations": []
         },
         {
-          "id": 129,
+          "id": 133,
           "type": "stat",
           "title": "Sources never collected",
           "description": "Configured source that has never produced a snapshot.",
@@ -1617,7 +1875,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 76,
+            "y": 95,
             "w": 6,
             "h": 4
           },
@@ -1671,7 +1929,7 @@
           "transformations": []
         },
         {
-          "id": 130,
+          "id": 134,
           "type": "stat",
           "title": "Monitored providers",
           "description": "Payment providers, acquirers and banks together.",
@@ -1681,7 +1939,7 @@
           },
           "gridPos": {
             "x": 18,
-            "y": 76,
+            "y": 95,
             "w": 6,
             "h": 4
           },
@@ -1733,19 +1991,19 @@
       ]
     },
     {
-      "id": 131,
+      "id": 135,
       "type": "row",
       "collapsed": true,
       "title": "Collection health · Failure rates",
       "gridPos": {
         "x": 0,
-        "y": 80,
+        "y": 99,
         "w": 24,
         "h": 1
       },
       "panels": [
         {
-          "id": 132,
+          "id": 136,
           "type": "timeseries",
           "title": "Blackbox collection failures",
           "description": "Measures our ability to collect, not the provider's health.",
@@ -1755,7 +2013,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 81,
+            "y": 100,
             "w": 12,
             "h": 10
           },
@@ -1811,7 +2069,7 @@
           "transformations": []
         },
         {
-          "id": 133,
+          "id": 137,
           "type": "timeseries",
           "title": "Declared source failures",
           "description": "Failures to fetch the official status page.",
@@ -1821,7 +2079,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 81,
+            "y": 100,
             "w": 12,
             "h": 10
           },
@@ -1879,19 +2137,19 @@
       ]
     },
     {
-      "id": 134,
+      "id": 138,
       "type": "row",
       "collapsed": true,
       "title": "Collection health · Probes and freshness",
       "gridPos": {
         "x": 0,
-        "y": 91,
+        "y": 110,
         "w": 24,
         "h": 1
       },
       "panels": [
         {
-          "id": 135,
+          "id": 139,
           "type": "timeseries",
           "title": "Probes observed failing",
           "description": "Collection succeeded but the result failed: the provider, not us.",
@@ -1901,7 +2159,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 92,
+            "y": 111,
             "w": 12,
             "h": 10
           },
@@ -1957,7 +2215,7 @@
           "transformations": []
         },
         {
-          "id": 136,
+          "id": 140,
           "type": "table",
           "title": "Age of the last valid collection",
           "description": "Compare with the psp_probe_stale_after_seconds threshold.",
@@ -1967,7 +2225,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 92,
+            "y": 111,
             "w": 12,
             "h": 10
           },
