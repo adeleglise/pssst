@@ -107,7 +107,7 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 | `scripts/capture-dashboard.sh`, `scripts/capture/` | Captures the README's dashboard screenshot from the demo stack plus three more fictional providers and a Grafana. |
 | `brand/` | SVG sources of the icon, banner and social preview. `scripts/build-brand.sh` renders `brand/png/`. |
 | `compose.yaml`, `examples/` | The offline demo and its configuration. |
-| `.github/workflows/` | `ci.yml`: every check plus the smoke test. `image.yml`: the GHCR image. `release.yml`: a tag becomes a release. |
+| `.github/workflows/` | `ci.yml`: every check plus the smoke test. `image.yml`: the GHCR image, also called by `release.yml` on a tag. `release.yml`: a tag becomes a release. |
 | `CHANGELOG.md` | One section per version; the release workflow publishes it as notes. |
 | `docs/adr/` | Design decisions. |
 
@@ -137,7 +137,8 @@ curl -s -G --data-urlencode 'query=count(psp_status_source_up == 1)' \
 it. Changes reach `main` through a pull request whose CI is green, `verify`
 and `smoke` both. CI takes Go from `go.mod`; the Dockerfile pins its own
 `golang` builder image, so the two move together. staticcheck and govulncheck
-are pinned in `go.mod` as tools. Dependabot proposes updates weekly.
+are pinned in `go.mod` as tools. Every GitHub Action is pinned to a full commit
+SHA with its version in a comment. Dependabot proposes updates weekly.
 
 Every push to `main` publishes `ghcr.io/adeleglise/pssst:edge`. A release, in
 order:
@@ -146,12 +147,16 @@ order:
    `## [X.Y.Z] - YYYY-MM-DD` section, and point the README's pinned versions
    (kustomize `ref` and image tag) at it. Merge.
 2. Tag `main`: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
-3. The release workflow reruns `fmt-check lint vuln test test-race` and the
-   rule tests and `chart-test`, builds the binaries with `make dist` and
-   publishes them with `SHA256SUMS`; it fails when the changelog has no section
-   for the tag. It then pushes the chart at `X.Y.Z` to
-   `oci://ghcr.io/adeleglise/charts`. The image workflow publishes `X.Y.Z`,
-   `X.Y` and `latest`.
+3. The release workflow runs three jobs in order. `release` reruns
+   `fmt-check lint vuln test test-race` and the rule tests and `chart-test`,
+   builds the binaries with `make dist`, checks that the changelog has a
+   section for the tag (it fails otherwise), attests `SHA256SUMS` and creates
+   the GitHub release with the binaries. Then `image` calls `image.yml`, which
+   publishes `X.Y.Z`, `X.Y` and `latest` and attests the digest in the
+   registry; a tag push does not trigger `image.yml` on its own. Then `chart`,
+   which waits for the image, pushes the chart at `X.Y.Z` to
+   `oci://ghcr.io/adeleglise/charts`. A failed `image` job leaves a GitHub
+   release without an image or chart until that job is re-run.
 
 The exported version drops the `v`: tag `v1.0.0` reports `1.0.0` in
 `psp_exporter_build_info`. `make dist` is reproducible: on a clean checkout of

@@ -26,6 +26,12 @@ const MaxPSPs = 128
 const MaxProbes = 32
 const MaxComponents = 128
 
+// MinTimeout keeps polling.timeout clear of Blackbox's default 0.5s
+// --timeout-offset, which it subtracts from the scrape timeout PSSST sends: at
+// 0.5s or less Blackbox probes with no deadline left and reports a healthy
+// target as failed.
+const MinTimeout = time.Second
+
 var identifier = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,63}$`)
 
 // Kinds is the bounded set of entity classes exported by psp_info.
@@ -163,6 +169,9 @@ func (c Config) validate() error {
 		if d <= 0 || d > 24*time.Hour {
 			return errors.New("polling intervals and timeout must be positive and at most 24h")
 		}
+	}
+	if c.Polling.Timeout < MinTimeout {
+		return fmt.Errorf("polling.timeout must be at least %s", MinTimeout)
 	}
 	if c.Polling.Timeout > c.Polling.StatusInterval || c.Polling.Timeout > c.Polling.ProbeInterval {
 		return errors.New("polling.timeout must not exceed either interval")

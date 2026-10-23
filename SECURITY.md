@@ -20,6 +20,18 @@ not ask for, a way to make an unknown or absent signal export as healthy.
 A provider's status page reporting the wrong status is not a vulnerability in
 PSSST; that disagreement is what PSSST exists to show.
 
+Also in scope: a default deployment that exposes more than the README's
+security section says it does.
+
+## Exposure
+
+`/metrics`, `/healthz` and `/readyz` are unauthenticated plain HTTP, and
+Blackbox Exporter answers any probe request it receives. Neither is a
+vulnerability in PSSST; both belong on the monitoring network. The Kubernetes
+manifests and the Helm chart restrict Blackbox to PSSST's own pods with a
+NetworkPolicy, which needs a CNI that enforces it. Put TLS or authentication
+for the exporter in a proxy or sidecar.
+
 ## What PSSST reads and sends
 
 See [Security and what it reads](README.md#security-and-what-it-reads) in the

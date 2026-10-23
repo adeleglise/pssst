@@ -123,6 +123,29 @@ def timeseries(title, expr, legend, unit="short", description=""):
     )
 
 
+def timeline(title, expr, text, color, description="", maximum=None):
+    """One state per provider over time. The query keeps only the moments the
+    condition holds, so a gap means it did not hold or was not evaluated, and
+    is never drawn as a healthy state. One panel per signal: the three are
+    never combined."""
+    # A count, like the open maintenance windows, maps from 1 up.
+    if maximum:
+        mapping = {"type": "range", "options": {"from": 1, "to": maximum,
+                                                "result": {"text": text, "color": color, "index": 0}}}
+    else:
+        mapping = {"type": "value", "options": {"1": {"text": text, "color": color, "index": 0}}}
+    return panel(
+        title, "state-timeline", [query(expr, "{{psp}}")],
+        options={"mergeValues": True, "showValue": "never", "alignValue": "left", "rowHeight": 0.8,
+                 "legend": {"showLegend": False, "displayMode": "list", "placement": "bottom"},
+                 "tooltip": {"mode": "single", "sort": "none"}},
+        defaults={"custom": {"lineWidth": 0, "fillOpacity": 85},
+                  "color": {"mode": "fixed", "fixedColor": color},
+                  "thresholds": steps((GREY, None)), "mappings": [mapping]},
+        description=description,
+    )
+
+
 def autogrid(names, columns, row_height):
     return {"kind": "AutoGridLayout", "spec": {
         "maxColumnCount": columns, "rowHeight": row_height,
@@ -189,6 +212,17 @@ triage = rows(
               value_title="Fenêtres",
               description="Total annoncé, y compris les fenêtres sans date."),
     ], 2, 5),
+    ("Historique", [
+        timeline("Pannes non annoncées dans le temps", "psp:unannounced_failure == 1",
+                 "NON ANNONCÉE", RED,
+                 description="Une ligne par fournisseur, colorée tant que la panne observée n'est pas annoncée. Un blanc veut dire que la condition n'était pas vraie, ou pas évaluée."),
+        timeline("Incidents confirmés dans le temps", "psp:confirmed_incident == 1",
+                 "CONFIRMÉ", RED,
+                 description="Une ligne par fournisseur, colorée tant que la panne observée et l'incident déclaré coïncident."),
+        timeline("Maintenances en cours dans le temps", "psp_maintenance_active > 0",
+                 "MAINTENANCE", "blue", maximum=1000000,
+                 description="Une ligne par fournisseur, colorée tant qu'une fenêtre de maintenance est ouverte."),
+    ], 1, 3),
 )
 
 # ----------------------------------------------------------- tab 2: declared
@@ -363,6 +397,19 @@ EN = {
     "Coup d'œil": "At a glance",
     "Qui est en panne": "Who is down",
     "Maintenances planifiées": "Planned maintenance",
+    "Historique": "History",
+    "Pannes non annoncées dans le temps": "Unannounced failures over time",
+    "Une ligne par fournisseur, colorée tant que la panne observée n'est pas annoncée. Un blanc veut dire que la condition n'était pas vraie, ou pas évaluée.":
+        "One line per provider, coloured while the observed failure is not announced. A gap means the condition did not hold, or was not evaluated.",
+    "NON ANNONCÉE": "UNANNOUNCED",
+    "Incidents confirmés dans le temps": "Confirmed incidents over time",
+    "Une ligne par fournisseur, colorée tant que la panne observée et l'incident déclaré coïncident.":
+        "One line per provider, coloured while the observed failure and the declared incident coincide.",
+    "CONFIRMÉ": "CONFIRMED",
+    "Maintenances en cours dans le temps": "Maintenance in progress over time",
+    "Une ligne par fournisseur, colorée tant qu'une fenêtre de maintenance est ouverte.":
+        "One line per provider, coloured while a maintenance window is open.",
+    "MAINTENANCE": "MAINTENANCE",
     "Déclaré": "Declared",
     "État déclaré": "Declared state",
     "Tendances": "Trends",
@@ -468,6 +515,7 @@ def classic(v2):
             {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"},
             {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
             {"type": "panel", "id": "stat", "name": "Stat", "version": ""},
+            {"type": "panel", "id": "state-timeline", "name": "State timeline", "version": ""},
             {"type": "panel", "id": "table", "name": "Table", "version": ""},
             {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""},
         ],

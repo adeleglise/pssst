@@ -1,0 +1,20 @@
+{{- if .Values.prometheusRule.enabled }}
+{{- /* The rules file is wrapped, not templated: .Files.Get output is not
+parsed again, so the alert annotations' own template syntax reaches Prometheus
+intact. */}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pssst
+  {{- with .Values.prometheusRule.namespace }}
+  namespace: {{ . }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/name: pssst
+    {{- include "pssst.helmLabels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- .Files.Get "files/pssst.yml" | nindent 2 }}
+{{- end }}

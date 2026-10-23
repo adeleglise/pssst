@@ -7,29 +7,39 @@ name: Image
 #   push to main    ghcr.io/<owner>/pssst:edge
 #   tag vX.Y.Z      ghcr.io/<owner>/pssst:X.Y.Z, X.Y and latest
 #
+# A tag does not trigger this workflow: release.yml calls it once its tests and
+# its CHANGELOG check have passed, so a failing release publishes no image.
+# Called from a tag run, github.ref is still the tag, which is what selects the
+# version tags and `latest` below.
+#
+# Each push is attested: build provenance in the image, and a signed
+# attestation of the pushed digest stored next to it in the registry.
+#
 # The image carries no inventory: mount one at /etc/pssst/config.yml.
 on:
   push:
     branches: [main]
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_call:
 
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
 
 jobs:
   image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -39,15 +49,22 @@ jobs:
           # latest only for a release tag, never for main.
           flavor: |
             latest=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@v7
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           target: exporter
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: mode=max
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # The exported version drops the v, like the release binaries; main
           # reports "edge".
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

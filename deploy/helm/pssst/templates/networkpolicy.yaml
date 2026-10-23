@@ -1,0 +1,27 @@
+{{- if .Values.networkPolicy.enabled }}
+# Blackbox Exporter probes whatever ?target= it is given, so any pod that can
+# reach it can use it as a probe proxy. Only PSSST's own pods may. Ingress
+# only: the prober still reaches the providers, and the exporter is untouched.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pssst-blackbox
+  labels:
+    app.kubernetes.io/name: pssst-blackbox
+    app.kubernetes.io/component: prober
+    {{- include "pssst.helmLabels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pssst-blackbox
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pssst
+      ports:
+        - port: 9115
+          protocol: TCP
+{{- end }}

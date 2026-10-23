@@ -8,6 +8,10 @@ publishes the section matching the tag as the release notes.
 
 ### Fixed
 
+- A release tag no longer publishes the `X.Y.Z`, `X.Y` and `latest` images on
+  its own. The release workflow calls the image workflow after its tests and
+  its CHANGELOG check have passed, and the chart waits for the image, so a
+  failing release publishes neither.
 - Built with Go 1.27.3 and `golang.org/x/net` v0.60.0, which fix ten
   vulnerabilities govulncheck found reachable from PSSST in `net/http`, its
   HTTP/2 implementation, `crypto/tls`, `crypto/x509` and `mime/multipart`.
@@ -22,9 +26,64 @@ publishes the section matching the tag as the release notes.
 - The Datadog check tagged every series with its scrape URL, which carries the
   pod IP, so each reschedule created a new set of billed series under an
   `endpoint` tag that collided with PSSST's own. `tag_by_endpoint` is now off.
+- A probe whose target hung kept its last `probe_success` of 1 until it went
+  stale, so `psp:unannounced_failure` never fired for a hung API: Blackbox,
+  told no scrape timeout, outlived PSSST's request and the collection failed
+  instead. Each Blackbox request now sends `X-Prometheus-Scrape-Timeout-Seconds`
+  set to `polling.timeout`, unless `blackbox.headers` sets it, so a hang is
+  reported as a failed probe. Module timeouts no longer need to stay below
+  `polling.timeout`.
+- On the Prometheus Operator, the ServiceMonitor renamed each probe's
+  `endpoint` label to `exported_endpoint` and labelled every series
+  `endpoint="metrics"`. The rules match probes on `endpoint`, so a fresh probe
+  vouched for the stale failure of another endpoint of the same provider, and
+  `PSPObservedUnavailable` or `PSPUnannouncedFailure` could fire on a failure
+  no longer observed and never clear. Both ServiceMonitors now set
+  `honorLabels: true`: probe series carry their configured `endpoint` name and
+  `exported_endpoint` is gone, so a query or panel that read it must read
+  `endpoint`. Series without an endpoint, `psp_status_*` and `psp_declared_*`,
+  keep `endpoint="metrics"` from the Operator as before, and the declared rules
+  match on `job`, `instance` and `psp` only. A plain scrape config is
+  unaffected.
 
 ### Added
 
+- `make fuzz` runs short fuzz targets against the Blackbox exposition decoder
+  and the Kener page parser, the two hand-written parsers of untrusted input,
+  which had none. Unit tests now also cover severity normalization in the Statuspage,
+  Instatus, Adyen and PayPal adapters, the shared snapshot helpers, and
+  configuration loading limits.
+- Every GitHub Action in the workflows is pinned to a full commit SHA, with the
+  version in a comment; Dependabot updates both.
+- Release binaries and the exporter image carry signed build provenance:
+  check a binary with `gh attestation verify <file> --repo adeleglise/pssst`.
+  The image is also built with `provenance: mode=max`.
+- A weekly run of `make vuln` (`vuln.yml`, also runnable by hand), so a
+  vulnerability published between two changes is reported within a week.
+- Dependabot now watches the images in `compose.yaml`, and a test fails when
+  the Blackbox image differs between the Dockerfile, `compose.yaml`, the
+  Kubernetes manifest, the chart's values and the chart's README, and also
+  when a pinned digest differs.
+- The Kubernetes manifests and the Helm chart now ship a NetworkPolicy that
+  lets only the `pssst` pods reach Blackbox Exporter on port 9115. Before, any
+  pod in the cluster could use it as a probe proxy. The chart turns it off with
+  `networkPolicy.enabled=false`; the base needs a CNI that enforces
+  NetworkPolicy to honour it.
+- The Helm chart installs the correlation rules as a PrometheusRule with
+  `prometheusRule.enabled=true`, copied from the same release as the image,
+  with `prometheusRule.namespace` and `prometheusRule.additionalLabels`.
+  Off by default.
+- The chart accepts `serviceMonitor.additionalLabels`, so a Prometheus that
+  selects ServiceMonitors by label, such as kube-prometheus-stack, picks it up.
+- The chart accepts `extraEnv` and `envFrom`, so a token an inventory header
+  reads as `${TOKEN}` can come from a Secret.
+- The README and SECURITY.md say that `/metrics`, `/healthz` and `/readyz` are
+  unauthenticated plain HTTP to keep on the monitoring network.
+- A History row on the dashboard's first tab, with one state timeline each for
+  unannounced failures, confirmed incidents and open maintenance windows, one
+  line per provider. The three stay separate series, and a gap means the
+  condition did not hold or was not evaluated, never a healthy state. It adds
+  no recording rule; re-upload the grafana.com listing to get it.
 - A Helm chart, published with each release to
   `oci://ghcr.io/adeleglise/charts/pssst` at the release's version. It renders
   the same objects as the kustomize base, and a test fails when they drift.
@@ -51,9 +110,34 @@ publishes the section matching the tag as the release notes.
   source fails.
 - Tests for the HTTP client's bounds, the adapter registry, freshness, and a
   check that every name in the Datadog list is a real metric.
+- `/metrics` exposes the standard `go_*` and `process_*` families for the
+  exporter's own memory, goroutines and file descriptors. They are not in the
+  Datadog list.
+- `PSPExporterAbsent`, critical after ten minutes without any
+  `psp_exporter_build_info`. An exporter that was down or not scraped took
+  every PSSST series with it, and no alert fired. It does not name a scrape
+  job; the README says how to add a per-replica `up == 0` alert on yours.
+- `PSPObservedFlapping`, a warning when an endpoint fails more than 30% of its
+  probes over ten minutes, for ten minutes, from the observed-only recording
+  rule `psp:probe_success_ratio_10m`. A probe failing every other minute reset
+  every `for` timer and never alerted.
+- `docs/runbook.md`, one section per alert: what it means, which signal to
+  read, the first checks, and why to note when the observed failure started.
+  Every alert links its section in `runbook_url`.
+- An Alertmanager example in the README: `info` routed away from the pager,
+  and the observed-only warnings inhibited while `PSPUnannouncedFailure` or
+  `PSPConfirmedIncident` fires for the same provider.
+- Rule tests for the `PSPStatusSourceUnavailable`,
+  `PSPProbeCollectionUnavailable` and `PSPObservedFlapping` timers, for a
+  `type: none` provider failing,
+  and for two endpoints of one provider with different freshness.
 
 ### Changed
 
+- `polling.timeout` must now be at least `1s`, and a configuration below it
+  is rejected at startup. Blackbox subtracts 0.5s from the scrape timeout
+  PSSST now sends, and with nothing left it would report healthy targets as
+  failed.
 - The Datadog list ships 7 metrics, about 300 series for the shipped
   inventory, instead of 24 metrics and about 1,070 series. The README lists
   the opt-in extras and their cost.
@@ -70,6 +154,10 @@ publishes the section matching the tag as the release notes.
   published image.
 - The Dockerfile targets `exporter-nas` and `blackbox-nas` are now
   `exporter-bundled` and `blackbox-bundled`.
+- The descriptions of `PSPUnannouncedFailure`, `PSPConfirmedIncident`,
+  `PSPStatusSourceUnavailable` and `PSPProbeCollectionUnavailable` name the
+  exporter's `instance`, as `PSPObservedUnavailable` already did, so two
+  replicas' alerts read apart.
 
 ### Removed
 

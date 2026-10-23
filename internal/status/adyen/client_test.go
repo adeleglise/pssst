@@ -118,3 +118,23 @@ func TestFetchRejectsUpstreamFailure(t *testing.T) {
 		t.Error("a non-HTTP base URL must be rejected")
 	}
 }
+
+func TestNormalizeSeverity(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]string{
+		"Operational":                   "none",
+		"Degraded performance":          "minor",
+		"Severely degraded performance": "major",
+		"Service unavailable":           "critical",
+		"Outage":                        "critical",
+		"OPERATIONAL":                   "none",
+		"  degraded performance ":       "minor",
+		"service UNAVAILABLE":           "critical",
+		"":                              "unknown",
+		"Under maintenance":             "unknown",
+	} {
+		if got := normalizeSeverity(in); got != want {
+			t.Errorf("normalizeSeverity(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

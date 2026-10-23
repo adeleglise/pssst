@@ -42,7 +42,10 @@ the generator; the listing does not follow the repository.
 ## What it shows
 
 The first rows answer the two questions worth asking at a glance: who is down,
-and who is in planned maintenance. The others are for looking closer: declared
+and who is in planned maintenance. The History row below them draws the three
+correlation signals over time, one state timeline each (unannounced failures,
+confirmed incidents, open maintenance windows), so a provider that flaps shows
+as such; a gap means the condition did not hold or was not evaluated. The others are for looking closer: declared
 status, observed probes, and collection health, which is where the cumulative
 counters show whether a gap is the provider failing or us failing to measure
 it.

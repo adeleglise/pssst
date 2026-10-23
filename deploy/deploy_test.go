@@ -27,6 +27,7 @@ func TestChartFilesMatchSources(t *testing.T) {
 	for chart, source := range map[string]string{
 		"helm/pssst/files/pssst.psp.yml": "pssst.psp.yml",
 		"helm/pssst/files/blackbox.yml":  "blackbox/blackbox.yml",
+		"helm/pssst/files/pssst.yml":     "prometheus/pssst.yml",
 	} {
 		a, err := os.ReadFile(chart)
 		if err != nil {
@@ -58,12 +59,91 @@ func TestChartRendersTheKustomizeBase(t *testing.T) {
 	if a, b := keys(base), keys(chart); !slices.Equal(a, b) {
 		t.Fatalf("objects differ:\nkustomize %v\nhelm      %v", a, b)
 	}
+	honorsLabels(t, "kustomize", base["ServiceMonitor/pssst"])
+	honorsLabels(t, "helm", chart["ServiceMonitor/pssst"])
 	for key, want := range base {
 		if got := chart[key]; !reflect.DeepEqual(got, want) {
 			w, _ := json.MarshalIndent(want, "", "  ")
 			g, _ := json.MarshalIndent(got, "", "  ")
 			t.Errorf("%s differs:\nkustomize %s\nhelm      %s", key, w, g)
 		}
+	}
+}
+
+// honorsLabels fails unless every endpoint of a rendered ServiceMonitor keeps
+// the exporter's labels. Otherwise the Operator's endpoint="metrics" renames
+// each probe's endpoint label, and the rules' per-endpoint freshness joins let
+// a fresh probe vouch for a stale one.
+func honorsLabels(t *testing.T, renderer string, monitor any) {
+	t.Helper()
+	object, _ := monitor.(map[string]any)
+	spec, _ := object["spec"].(map[string]any)
+	endpoints, _ := spec["endpoints"].([]any)
+	if len(endpoints) == 0 {
+		t.Fatalf("%s: ServiceMonitor/pssst is missing or has no endpoints", renderer)
+	}
+	for i, endpoint := range endpoints {
+		if e, _ := endpoint.(map[string]any); e["honorLabels"] != true {
+			t.Errorf("%s: ServiceMonitor/pssst endpoint %d does not set honorLabels: true", renderer, i)
+		}
+	}
+}
+
+// The PrometheusRule wraps the rules file untouched: same groups, and the
+// alert templates ({{ $labels }}) survive Helm.
+func TestChartPrometheusRuleWrapsTheRulesFile(t *testing.T) {
+	helm := tool(t, "helm")
+	raw, err := os.ReadFile("prometheus/pssst.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want any
+	if err := yaml.Unmarshal(raw, &want); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := render(t, helm, "template", "pssst", "helm/pssst")["PrometheusRule/pssst"]; ok {
+		t.Error("PrometheusRule rendered by default")
+	}
+	rule, ok := render(t, helm, "template", "pssst", "helm/pssst", "--set", "prometheusRule.enabled=true")["PrometheusRule/pssst"].(map[string]any)
+	if !ok {
+		t.Fatal("no PrometheusRule with prometheusRule.enabled=true")
+	}
+	if !reflect.DeepEqual(rule["spec"], want) {
+		t.Errorf("PrometheusRule spec differs from deploy/prometheus/pssst.yml")
+	}
+}
+
+// Each option the chart adds over the base changes only what it names.
+func TestChartOptions(t *testing.T) {
+	helm := tool(t, "helm")
+	defaults := render(t, helm, "template", "pssst", "helm/pssst")
+
+	if _, ok := defaults["NetworkPolicy/pssst-blackbox"]; !ok {
+		t.Error("NetworkPolicy missing by default")
+	}
+	off := render(t, helm, "template", "pssst", "helm/pssst", "--set", "networkPolicy.enabled=false")
+	if _, ok := off["NetworkPolicy/pssst-blackbox"]; ok {
+		t.Error("NetworkPolicy rendered with networkPolicy.enabled=false")
+	}
+
+	labelled := render(t, helm, "template", "pssst", "helm/pssst",
+		"--set", "serviceMonitor.enabled=true", "--set", "serviceMonitor.additionalLabels.release=prom")
+	labels := labelled["ServiceMonitor/pssst"].(map[string]any)["metadata.labels"].(map[string]any)
+	if labels["release"] != "prom" {
+		t.Errorf("ServiceMonitor labels = %v, want release=prom", labels)
+	}
+
+	env := render(t, helm, "template", "pssst", "helm/pssst",
+		"--set", "extraEnv[0].name=TOKEN", "--set", "extraEnv[0].value=x",
+		"--set", "envFrom[0].secretRef.name=pssst-tokens")
+	spec := env["Deployment/pssst"].(map[string]any)["spec"].(map[string]any)
+	container := spec["template"].(map[string]any)["spec"].(map[string]any)["containers"].([]any)[0].(map[string]any)
+	if got := container["env"].([]any); len(got) != 2 || got[0].(map[string]any)["name"] != "PSSST_LOG_LEVEL" {
+		t.Errorf("env = %v, want PSSST_LOG_LEVEL first, then TOKEN", got)
+	}
+	if got := container["envFrom"].([]any); len(got) != 1 {
+		t.Errorf("envFrom = %v, want the secretRef", got)
 	}
 }
 
@@ -186,4 +266,54 @@ func keys(m map[string]any) []string {
 	}
 	slices.Sort(out)
 	return out
+}
+
+// The Blackbox image is written in five places that Dependabot, as configured
+// here, cannot all reach: the Dockerfile and compose.yaml it does update, the
+// Kubernetes manifest, the chart's values and the chart's README it does not.
+// They must name the same version, and the same digest when one is pinned.
+func TestBlackboxImageIsTheSameEverywhere(t *testing.T) {
+	const repository = "quay.io/prometheus/blackbox-exporter"
+	reference := regexp.MustCompile(regexp.QuoteMeta(repository) + `:[A-Za-z0-9._-]+(?:@sha256:[0-9a-fA-F]+)?`)
+
+	found := map[string][]string{}
+	for _, file := range []string{"../Dockerfile", "../compose.yaml", "kubernetes/blackbox.yaml", "helm/pssst/README.md"} {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found[file] = slices.Compact(reference.FindAllString(string(b), -1))
+	}
+
+	b, err := os.ReadFile("helm/pssst/values.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values struct {
+		Blackbox struct {
+			Image struct {
+				Repository string `yaml:"repository"`
+				Tag        string `yaml:"tag"`
+			} `yaml:"image"`
+		} `yaml:"blackbox"`
+	}
+	if err := yaml.Unmarshal(b, &values); err != nil {
+		t.Fatal(err)
+	}
+	image := values.Blackbox.Image
+	found["helm/pssst/values.yaml"] = []string{image.Repository + ":" + image.Tag}
+
+	want := ""
+	for file, refs := range found {
+		if len(refs) != 1 {
+			t.Errorf("%s: want exactly one Blackbox image reference, got %v", file, refs)
+			continue
+		}
+		if want == "" {
+			want = refs[0]
+		}
+		if refs[0] != want {
+			t.Errorf("%s has %s, other files have %s", file, refs[0], want)
+		}
+	}
 }

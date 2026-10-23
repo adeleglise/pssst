@@ -25,3 +25,17 @@ updates:
     groups:
       images:
         patterns: ["*"]
+
+  # Blackbox and Prometheus images in compose.yaml. This configuration does not
+  # scan the Kubernetes manifests or the Helm values: deploy/deploy_test.go
+  # keeps the Blackbox reference identical in all five places. The images built
+  # locally by the demo stack are not on a registry.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "localhost/*"
+    groups:
+      compose-images:
+        patterns: ["*"]

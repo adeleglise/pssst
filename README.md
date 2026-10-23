@@ -182,7 +182,7 @@ psps:
 | `server.listen_address` | host:port, default `:9099`. |
 | `polling.status_interval` | Declared-source interval, default `60s`, at most 24h. |
 | `polling.probe_interval` | Blackbox interval, default `30s`. |
-| `polling.timeout` | Request deadline, default `10s`, no greater than either interval. |
+| `polling.timeout` | Request deadline, default `10s`, at least `1s`, no greater than either interval. |
 | `polling.jitter` | Startup and between-poll jitter, default `5s`, up to the smaller interval. |
 | `blackbox.base_url` | Blackbox base URL; required as soon as one probe exists. |
 | `blackbox.headers` | Optional bounded headers. |
@@ -200,8 +200,15 @@ psps:
 The file is strict: unknown and duplicate fields are rejected and it is capped
 at 1 MiB. `${NAME}` expands from the environment in values, an unset name
 being an error, so tokens stay out of the file. Bounds: 128 providers, 32
-probes each, 128 mapped components, 2 MiB per remote response. Keep every
-Blackbox module timeout below `polling.timeout`.
+probes each, 128 mapped components, 2 MiB per remote response. Each Blackbox
+request carries `X-Prometheus-Scrape-Timeout-Seconds` set to
+`polling.timeout`, as Prometheus does, so Blackbox stops a hung probe and
+reports it failed before PSSST gives up on the request. Set that header in
+`blackbox.headers` to send a different value. Blackbox subtracts its
+`--timeout-offset`, 0.5s by default, from that value, and probes with no
+deadline left when the result is zero or less, reporting even a healthy
+target as failed: hence the 1s floor. If you raise that flag, keep
+`polling.timeout` comfortably above it.
 
 **Adding a provider.**
 
@@ -234,8 +241,22 @@ helm install pssst oci://ghcr.io/adeleglise/charts/pssst --version 1.1.0 \
 Without `inventory`, it runs the default inventory. Set `blackbox.base_url` in
 yours to `http://pssst-blackbox:9115`. The ServiceMonitor is off by default so
 the chart installs without the Prometheus Operator; turn it on with
-`--set serviceMonitor.enabled=true`. Every value is in
+`--set serviceMonitor.enabled=true`, and add
+`--set serviceMonitor.additionalLabels.release=<your Prometheus release>` when
+your Prometheus selects ServiceMonitors by label. The correlation rules are
+off too: `--set prometheusRule.enabled=true` installs them as a PrometheusRule,
+copied from the same release as the image. Every value is in
 [deploy/helm/pssst/README.md](deploy/helm/pssst/README.md).
+
+A header token stays out of the inventory with `${TOKEN}`; give the pod the
+variable from a Secret you created:
+
+```yaml
+# values.yaml
+envFrom:
+  - secretRef:
+      name: pssst-tokens
+```
 
 ## Deploy on Kubernetes
 
@@ -285,6 +306,7 @@ What you get:
 | ConfigMap | `pssst-config-<hash>` | Your inventory as `config.yml`. The hash rolls the pods when it changes. |
 | ConfigMap | `pssst-blackbox-config-<hash>` | The Blackbox modules. |
 | ServiceMonitor | `pssst` | For the Prometheus Operator: 30s interval, 10s timeout. |
+| NetworkPolicy | `pssst-blackbox` | Ingress to Blackbox on TCP 9115 only from the `pssst` pods. See [Security and what it reads](#security-and-what-it-reads). |
 
 The `pssst` pod also carries `prometheus.io/*` annotations for an annotation-
 based Prometheus and the Datadog Autodiscovery check described below.
@@ -331,8 +353,12 @@ docker run -d --name pssst --network pssst -p 127.0.0.1:9099:9099 \
 **Scrape.** On Kubernetes, the ServiceMonitor or the pod annotations cover it;
 make sure the ServiceMonitor's labels match your Prometheus's
 `serviceMonitorSelector` (kube-prometheus-stack selects `release: <name>` by
-default). Elsewhere, add the job in
-[deploy/prometheus/pssst-scrape.yml](deploy/prometheus/pssst-scrape.yml):
+default). The ServiceMonitor sets `honorLabels: true`: the Operator labels
+every target `endpoint="metrics"`, and without it each probe's own `endpoint`
+label would become `exported_endpoint`, so a fresh probe could vouch for a
+stale one. Elsewhere, add the job in
+[deploy/prometheus/pssst-scrape.yml](deploy/prometheus/pssst-scrape.yml); a
+plain scrape config adds no `endpoint` label and needs no change:
 
 ```yaml
 scrape_configs:
@@ -343,8 +369,10 @@ scrape_configs:
 ```
 
 **Rules and alerts.** [deploy/prometheus/pssst.yml](deploy/prometheus/pssst.yml)
-holds seven recording rules and seven alerts. Add it to `rule_files`, or with
-the Prometheus Operator wrap it in a PrometheusRule:
+holds eight recording rules and nine alerts. Add it to `rule_files`, or with
+the Prometheus Operator, install it with the chart
+(`--set prometheusRule.enabled=true`, plus `prometheusRule.additionalLabels`
+if your Prometheus selects rules by label) or wrap it in a PrometheusRule:
 
 ```sh
 yq '{"apiVersion": "monitoring.coreos.com/v1", "kind": "PrometheusRule",
@@ -355,27 +383,54 @@ yq '{"apiVersion": "monitoring.coreos.com/v1", "kind": "PrometheusRule",
 | Rule | Value |
 | --- | --- |
 | `psp:observed_unavailable` | 1 when any fresh endpoint fails, 0 when all are fresh and up, absent when partly unknown. |
+| `psp:probe_success_ratio_10m` | Share of the last ten minutes' probes that succeeded, worst fresh endpoint. Observed only; 1 needs every endpoint fresh. |
 | `psp:declared_unavailable` | 1 or 0 while a configured source is fresh; absent for stale and `type: none`. |
 | `psp:confirmed_incident` | Both signals failing, unless a maintenance window is open with no incident declared. |
 | `psp:unannounced_failure` | Observed failing, declared fresh and quiet, no maintenance window. |
-| `psp:status_source_stale` | No fresh complete snapshot. |
+| `psp:status_source_stale` | The last poll failed, or the last complete snapshot is missing or older than `psp_status_source_stale_after_seconds`. |
 | `psp:probe_collection_unavailable` | Blackbox cannot be reached or answers badly. |
 | `psp:probe_collection_fresh` | Every endpoint has a fresh collection. |
 
 | Alert | `for` | Severity |
 | --- | --- | --- |
 | `PSPObservedUnavailable` | 5m | warning |
+| `PSPObservedFlapping` (ratio under 0.7, above 0) | 10m | warning |
 | `PSPConfirmedIncident` | 5m | critical |
 | `PSPUnannouncedFailure` | 10m | critical |
 | `PSPProbeCollectionUnavailable` | 5m | warning |
 | `PSPStatusSourceUnavailable` | 10m | warning |
 | `PSPCertificateExpiringSoon` (14 days) | 15m | warning |
 | `PSPMaintenanceApproaching` (7 days) | 15m | info |
+| `PSPExporterAbsent` | 10m | critical |
+
+Each alert links its section of the [runbook](docs/runbook.md) in
+`runbook_url`: what it means, which signal to read, the first checks, and why
+to note when the observed failure started. `PSPExporterAbsent` fires only when
+no PSSST exporter is scraped at all; to catch one replica down among several,
+add an `up == 0` alert on your own scrape job's name.
 
 Freshness is the age of the last success, never the last attempt: one failed
 poll keeps the last observation and does not restart an alert timer. `job` and
 `instance` survive every aggregation, so two replicas never hide one another.
-Route on the `severity` label in Alertmanager.
+Route on the `severity` label in Alertmanager. For example, with `oncall` and
+`tickets` receivers of your own:
+
+```yaml
+route:
+  receiver: oncall
+  group_by: [alertname]
+  routes:
+    - matchers: ['severity="info"']
+      receiver: tickets          # maintenance notices never page
+inhibit_rules:
+  # Once a critical names the failure, the observed-only warnings repeat it.
+  - source_matchers: ['alertname=~"PSPUnannouncedFailure|PSPConfirmedIncident"']
+    target_matchers: ['alertname=~"PSPObservedUnavailable|PSPObservedFlapping"']
+    equal: [job, instance, psp]
+```
+
+Inhibition only silences a notification in Alertmanager; both signals stay in
+Prometheus, unmerged.
 
 ```promql
 psp:unannounced_failure == 1
@@ -462,9 +517,10 @@ probes and collection health. See that directory's README to import it.
 
 ## Metrics reference
 
-Every metric has an explicit type. Labels come only from the configuration
-(`psp`, `endpoint`, `component`) or from documented enums (`kind`, `severity`,
-`outcome`, `version`). **Nothing remote ever becomes a label.**
+Every `psp_*` metric has an explicit type. Their labels come only from the
+configuration (`psp`, `endpoint`, `component`) or from documented enums
+(`kind`, `severity`, `outcome`, `version`). **Nothing remote ever becomes a
+label.**
 
 | Metric | Type | Meaning |
 | --- | --- | --- |
@@ -504,6 +560,11 @@ failing.
 0 means "never", not "now". Per provider: 2 series, plus 16 and one per mapped
 component when a declared source is configured, plus 12 to 14 per collected
 probe; the default inventory exports about 1,070.
+
+`/metrics` also carries the standard `go_*` and `process_*` families of the
+Prometheus Go client, for the exporter's own memory, goroutines and file
+descriptors. Their labels are the client library's own, they do not depend on
+the inventory, and they are not in the Datadog list.
 
 ## How declared status is read
 
@@ -607,9 +668,9 @@ image.
   those series export 0.
 - An open maintenance window mutes the unannounced signal for the whole
   provider, even when it covers an unrelated component.
-- The Blackbox request carries no scrape-timeout header, so module timeouts
-  must stay below `polling.timeout`.
-- No NetworkPolicy ships with the Kubernetes manifests.
+- The NetworkPolicy covers ingress to Blackbox only, and only where the CNI
+  enforces NetworkPolicy. The exporter has none, and neither policy limits
+  egress.
 
 ## Security and what it reads
 
@@ -621,10 +682,24 @@ PSSST sends nothing anywhere on its own initiative, and has no telemetry.
   every request has a deadline.
 - **What it keeps**: the last snapshot of each source and probe, in memory.
   It writes no file and holds no state across restarts.
+- **What it reads locally**: its configuration, the system CA bundle to verify
+  status pages, and the resolver files (`/etc/resolv.conf`, `/etc/hosts`).
+  For the `process_*` metrics it also reads its own entries under
+  `/proc/<pid>` and the boot time in `/proc/stat`. The
+  `process_network_*_bytes_total` series come from `/proc/<pid>/net/netstat`,
+  which counts the whole network namespace, the pod in Kubernetes, not the
+  exporter alone.
 - **What it exposes**: `/metrics`, `/healthz` and `/readyz` on
-  `server.listen_address`. Labels come only from your configuration and
-  documented enums, never from remote text, so a status page cannot inject a
-  label or inflate cardinality.
+  `server.listen_address`, as unauthenticated plain HTTP. Keep them on the
+  monitoring network; if you need TLS or authentication, put a proxy or a
+  sidecar in front. Labels come only from your configuration and documented
+  enums, never from remote text, so a status page cannot inject a label or
+  inflate cardinality.
+- **Blackbox**: it probes whatever `?target=` it is asked for, so any pod that
+  reaches it can use it as a probe proxy. The Kubernetes manifests and the
+  chart ship a NetworkPolicy that admits only the `pssst` pods on port 9115;
+  it needs a CNI that enforces NetworkPolicy. Elsewhere, publish no port for
+  it, as the Compose stack does.
 - **Credentials**: none are needed. Headers you configure can read from the
   environment with `${NAME}`, so tokens stay out of the file.
 - **Container**: non-root, read-only root filesystem, no capabilities, no
