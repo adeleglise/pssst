@@ -14,6 +14,8 @@ func TestNormalizeSeverity(t *testing.T) {
 		"MAJOR":    "major",
 		"Critical": "critical",
 		"":         "unknown",
+		" minor":   "unknown", // not trimmed, unlike the Adyen and PayPal readers
+		"minor ":   "unknown",
 		"severe":   "unknown",
 		"mäjor":    "unknown",
 	} {

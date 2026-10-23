@@ -5,7 +5,7 @@
 ## Checklist
 
 - [ ] Declared and observed status still never merge inside the exporter.
-- [ ] No remote value (title, URL, error message, timestamp) became a label or reached a log field.
+- [ ] No remote text (title, URL, error message, timestamp) became a label, or reached a log field unless it matches a safe token shape.
 - [ ] The kustomize base and the Helm chart changed together (`make chart-sync`, `make chart-test`).
 - [ ] Dashboards regenerated with `make dashboards` if the generator changed.
 - [ ] `CHANGELOG.md` has an entry under `[Unreleased]`.

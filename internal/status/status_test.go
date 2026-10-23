@@ -13,7 +13,9 @@ func TestEndpoint(t *testing.T) {
 		{"base path", "https://status.example.test/sub/", "/api", "https://status.example.test/sub/api"},
 		{"query dropped", "https://status.example.test?token=secret", "/api", "https://status.example.test/api"},
 		{"fragment dropped", "https://status.example.test/#frag", "/api", "https://status.example.test/api"},
-		{"credentials kept for the client to refuse", "http://user:pw@status.example.test", "/api", "http://user:pw@status.example.test/api"},
+		// Endpoint keeps userinfo and the HTTP client would send it as Basic auth;
+		// only config.validURL refuses it, so pssst-check -url has no guard.
+		{"credentials kept; config validation refuses them", "http://user:pw@status.example.test", "/api", "http://user:pw@status.example.test/api"},
 		{"port", "http://status.example.test:8080", "/api", "http://status.example.test:8080/api"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

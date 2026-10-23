@@ -34,6 +34,12 @@ func FuzzDecode(f *testing.F) {
 		if !found {
 			t.Fatal("snapshot without the configured alias")
 		}
+		if len(snapshot.Components) != len(mappings)+1 {
+			t.Fatalf("components %v: a key came from the page, not the configuration", snapshot.Components)
+		}
+		if len(snapshot.Incidents) != 0 || snapshot.Details != nil {
+			t.Fatalf("a Kener page declares no incidents, got %v %v", snapshot.Incidents, snapshot.Details)
+		}
 		if overall && !api {
 			t.Fatal("overall is operational while a component is not")
 		}

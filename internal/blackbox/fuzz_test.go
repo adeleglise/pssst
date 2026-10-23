@@ -24,6 +24,9 @@ func FuzzDecodeMetrics(f *testing.F) {
 	f.Fuzz(func(t *testing.T, body []byte) {
 		result, err := decodeMetrics(body)
 		if err != nil {
+			if result != (Result{}) {
+				t.Fatalf("an error must come with no observation, got %+v", result)
+			}
 			return
 		}
 		if math.IsNaN(result.DurationSeconds) || math.IsInf(result.DurationSeconds, 0) || result.DurationSeconds < 0 {
