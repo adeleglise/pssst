@@ -188,15 +188,16 @@ func keys(m map[string]any) []string {
 	return out
 }
 
-// The Blackbox image is written in four places that Dependabot cannot all
-// reach: the Dockerfile and compose.yaml it does update, the Kubernetes manifest
-// and the chart's values it does not. They must name the same version.
+// The Blackbox image is written in five places that Dependabot, as configured
+// here, cannot all reach: the Dockerfile and compose.yaml it does update, the
+// Kubernetes manifest, the chart's values and the chart's README it does not.
+// They must name the same version, and the same digest when one is pinned.
 func TestBlackboxImageIsTheSameEverywhere(t *testing.T) {
 	const repository = "quay.io/prometheus/blackbox-exporter"
-	reference := regexp.MustCompile(regexp.QuoteMeta(repository) + `:[A-Za-z0-9._-]+`)
+	reference := regexp.MustCompile(regexp.QuoteMeta(repository) + `:[A-Za-z0-9._-]+(?:@sha256:[0-9a-fA-F]+)?`)
 
 	found := map[string][]string{}
-	for _, file := range []string{"../Dockerfile", "../compose.yaml", "kubernetes/blackbox.yaml"} {
+	for _, file := range []string{"../Dockerfile", "../compose.yaml", "kubernetes/blackbox.yaml", "helm/pssst/README.md"} {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)

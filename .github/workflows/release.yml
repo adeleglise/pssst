@@ -24,15 +24,15 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       # fmt-check lists sources with ripgrep, absent from the runner image.
       - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ripgrep
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
           version: v3.19.0
       - run: make fmt-check lint vuln test test-race chart-test
@@ -46,9 +46,6 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: make dist VERSION="${TAG#v}"
-      - uses: actions/attest-build-provenance@v3
-        with:
-          subject-checksums: dist/SHA256SUMS
       - name: Extract release notes
         env:
           TAG: ${{ github.ref_name }}
@@ -60,6 +57,9 @@ jobs:
             found { print }
           ' CHANGELOG.md > release-notes.md
           test -s release-notes.md
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        with:
+          subject-checksums: dist/SHA256SUMS
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,8 +86,8 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
           version: v3.19.0
       - name: Package and push

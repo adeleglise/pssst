@@ -29,6 +29,8 @@ publishes the section matching the tag as the release notes.
 
 ### Added
 
+- Every GitHub Action in the workflows is pinned to a full commit SHA, with the
+  version in a comment; Dependabot updates both.
 - Release binaries and the exporter image carry signed build provenance:
   check a binary with `gh attestation verify <file> --repo adeleglise/pssst`.
   The image is also built with `provenance: mode=max`.
@@ -36,7 +38,8 @@ publishes the section matching the tag as the release notes.
   vulnerability published between two changes is reported within a week.
 - Dependabot now watches the images in `compose.yaml`, and a test fails when
   the Blackbox image differs between the Dockerfile, `compose.yaml`, the
-  Kubernetes manifest and the chart's values.
+  Kubernetes manifest, the chart's values and the chart's README, and also
+  when a pinned digest differs.
 - A Helm chart, published with each release to
   `oci://ghcr.io/adeleglise/charts/pssst` at the release's version. It renders
   the same objects as the kustomize base, and a test fails when they drift.
