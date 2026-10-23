@@ -145,7 +145,8 @@ order:
 
 1. Move the `[Unreleased]` entries of `CHANGELOG.md` under a
    `## [X.Y.Z] - YYYY-MM-DD` section, and point the README's pinned versions
-   (kustomize `ref` and image tag) at it. Merge.
+   (Helm `--version`, kustomize `ref`, image tag, `PSSST_VERSION`) at it.
+   `TestReadmePinsReleasedVersions` fails on a pin without its section. Merge.
 2. Tag `main`: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
 3. The release workflow runs three jobs in order. `release` reruns
    `fmt-check lint vuln test test-race` and the rule tests and `chart-test`,

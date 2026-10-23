@@ -317,3 +317,30 @@ func TestBlackboxImageIsTheSameEverywhere(t *testing.T) {
 		}
 	}
 }
+
+// pinned matches the versions the README tells people to install: the chart
+// version, the kustomize ref, the image tag and the compose version.
+var pinned = regexp.MustCompile(`--version (\d+\.\d+\.\d+)|ref=v(\d+\.\d+\.\d+)|newTag: "(\d+\.\d+\.\d+)"|PSSST_VERSION=(\d+\.\d+\.\d+)`)
+
+// Every version the README pins must be a released one, with its own
+// CHANGELOG section, or each copied install command fails on a missing tag.
+func TestReadmePinsReleasedVersions(t *testing.T) {
+	readme, err := os.ReadFile("../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	changelog, err := os.ReadFile("../CHANGELOG.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	matches := pinned.FindAllStringSubmatch(string(readme), -1)
+	if len(matches) == 0 {
+		t.Fatal("no pinned version found in README.md")
+	}
+	for _, m := range matches {
+		version := strings.Join(m[1:], "")
+		if !bytes.Contains(changelog, []byte("\n## ["+version+"] - ")) {
+			t.Errorf("README.md pins %s (%q), which has no released section in CHANGELOG.md", version, m[0])
+		}
+	}
+}
