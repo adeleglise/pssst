@@ -508,6 +508,11 @@ failing.
 component when a declared source is configured, plus 12 to 14 per collected
 probe; the default inventory exports about 1,070.
 
+`/metrics` also carries the standard `go_*` and `process_*` families of the
+Prometheus Go client, for the exporter's own memory, goroutines and file
+descriptors. Their labels are the client library's own, they do not depend on
+the inventory, and they are not in the Datadog list.
+
 ## How declared status is read
 
 Every adapter returns **one complete snapshot or an error**: a partial document
@@ -621,7 +626,9 @@ PSSST sends nothing anywhere on its own initiative, and has no telemetry.
   Nothing else. Redirects are refused, responses are capped at 2 MiB, and
   every request has a deadline.
 - **What it keeps**: the last snapshot of each source and probe, in memory.
-  It writes no file and holds no state across restarts.
+  It writes no file and holds no state across restarts. Besides its
+  configuration it reads only `/proc`: its own process entries and the boot
+  time in `/proc/stat`, for the `process_*` metrics.
 - **What it exposes**: `/metrics`, `/healthz` and `/readyz` on
   `server.listen_address`. Labels come only from your configuration and
   documented enums, never from remote text, so a status page cannot inject a

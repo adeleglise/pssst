@@ -58,6 +58,9 @@ publishes the section matching the tag as the release notes.
   source fails.
 - Tests for the HTTP client's bounds, the adapter registry, freshness, and a
   check that every name in the Datadog list is a real metric.
+- `/metrics` exposes the standard `go_*` and `process_*` families for the
+  exporter's own memory, goroutines and file descriptors. They are not in the
+  Datadog list.
 
 ### Changed
 

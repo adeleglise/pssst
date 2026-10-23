@@ -19,6 +19,7 @@ import (
 	"github.com/adeleglise/pssst/internal/scheduler"
 	"github.com/adeleglise/pssst/internal/server"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 var version = "dev"
@@ -76,7 +77,11 @@ func run() int {
 	}
 	c := cache.New(cfg)
 	reg := prometheus.NewRegistry()
-	reg.MustRegister(collector.New(c, version))
+	reg.MustRegister(
+		collector.New(c, version),
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
 	srv := server.New(cfg.Server.ListenAddress, server.Handler(reg, c))
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
