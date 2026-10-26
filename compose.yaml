@@ -21,7 +21,7 @@ services:
         aliases: [pssst]
 
   blackbox_exporter:
-    image: quay.io/prometheus/blackbox-exporter:v0.28.0
+    image: quay.io/prometheus/blackbox-exporter:v0.29.1
     command: ["--config.file=/etc/blackbox/blackbox.yml"]
     volumes:
       - ./deploy/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
@@ -35,7 +35,7 @@ services:
         aliases: [blackbox-exporter]
 
   prometheus:
-    image: quay.io/prometheus/prometheus:v3.14.0
+    image: quay.io/prometheus/prometheus:v3.15.1
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
